@@ -35,3 +35,10 @@ out/
 
 ### VS Code ###
 .vscode/
+.env
+
+### conf ###
+conf/*.conf
+
+### firebase ###
+**/firebase/serviceAccountKey.json
