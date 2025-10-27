@@ -9,6 +9,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
+
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
@@ -29,13 +32,13 @@ class MemberFcmTokenServiceTest {
         @DisplayName("2달 이상 사용하지 않은 FCM 토큰을 삭제한다")
         void deleteUnusedFcmTokensOlderThanTwoMonths_success() {
             // given
-            given(memberFcmTokenJdbcRepository.deleteUnusedFcmTokensOlderThanTwoMonths()).willReturn(5);
+            given(memberFcmTokenJdbcRepository.deleteUnusedFcmTokensBefore(any(LocalDateTime.class))).willReturn(5);
 
             // when
             memberFcmTokenService.deleteUnusedFcmTokensOlderThanTwoMonths();
 
             // then
-            then(memberFcmTokenJdbcRepository).should().deleteUnusedFcmTokensOlderThanTwoMonths();
+            then(memberFcmTokenJdbcRepository).should().deleteUnusedFcmTokensBefore(any(LocalDateTime.class));
         }
 
     }

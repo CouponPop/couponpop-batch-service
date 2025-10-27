@@ -18,15 +18,14 @@ public class MemberFcmTokenJdbcRepository {
      *
      * @return 삭제된 행의 수
      */
-    public int deleteUnusedFcmTokensOlderThanTwoMonths() {
+    public int deleteUnusedFcmTokensBefore(LocalDateTime threshold) {
         String sql = """
                     DELETE FROM member_fcm_tokens
                     WHERE last_used_at IS NULL
                        OR last_used_at < ?
                 """;
 
-        LocalDateTime twoMonthsAgo = LocalDateTime.now().minusMonths(2);
-        Timestamp timestamp = Timestamp.valueOf(twoMonthsAgo);
+        Timestamp timestamp = Timestamp.valueOf(threshold);
 
         return jdbcTemplate.update(sql, timestamp);
     }
