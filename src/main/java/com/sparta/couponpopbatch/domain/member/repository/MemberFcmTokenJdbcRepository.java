@@ -16,6 +16,7 @@ public class MemberFcmTokenJdbcRepository {
     /**
      * 오래 사용하지 않은 FCM 토큰 삭제
      *
+     * @param threshold 기준 시간
      * @return 삭제된 행의 수
      */
     public int deleteUnusedFcmTokensBefore(LocalDateTime threshold) {
