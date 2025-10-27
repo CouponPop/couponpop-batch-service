@@ -14,7 +14,7 @@ public class MemberFcmTokenJdbcRepository {
     private final JdbcTemplate jdbcTemplate;
 
     /**
-     * 2달 이상 사용하지 않은 FCM 토큰 삭제
+     * 오래 사용하지 않은 FCM 토큰 삭제
      *
      * @return 삭제된 행의 수
      */
