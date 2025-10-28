@@ -32,6 +32,7 @@ public class CouponUsageStatsJobConfig {
     public static final String COUPON_USAGE_STATS_JOB = "couponUsageStatsJob";
     public static final String COUPON_USAGE_STATS_STEP = "couponUsageStatsStep";
     private static final int CHUNK_SIZE = 1000;
+    private static final int STATS_AGGREGATION_DAYS = 20;
 
     private final DataSource dataSource;
     private final JobRepository jobRepository;
@@ -131,7 +132,7 @@ public class CouponUsageStatsJobConfig {
                         rs.getInt("topHour")
                 ))
                 .preparedStatementSetter(ps -> {
-                    LocalDateTime from = runDateParam.minusDays(20).atStartOfDay(); // Job 실행 20일 전 00:00:00
+                    LocalDateTime from = runDateParam.minusDays(STATS_AGGREGATION_DAYS).atStartOfDay(); // Job 실행 20일 전 00:00:00
                     LocalDateTime to = runDateParam.atStartOfDay().plusDays(1).minusSeconds(1); // Job 실행 당일 23:59:59
                     ps.setTimestamp(1, Timestamp.valueOf(from));
                     ps.setTimestamp(2, Timestamp.valueOf(to));
