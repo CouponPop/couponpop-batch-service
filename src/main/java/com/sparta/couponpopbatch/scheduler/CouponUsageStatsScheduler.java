@@ -27,7 +27,7 @@ public class CouponUsageStatsScheduler {
         try {
             Job job = jobRegistry.getJob(COUPON_USAGE_STATS_JOB);
             JobParameters jobParameters = new JobParametersBuilder()
-                    .addLocalDate("runDate", LocalDate.now())
+                    .addLocalDate("runDate", LocalDate.now().minusDays(1))
                     .toJobParameters();
 
             jobLauncher.run(job, jobParameters);
