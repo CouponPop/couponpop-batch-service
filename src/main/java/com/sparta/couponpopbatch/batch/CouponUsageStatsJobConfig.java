@@ -12,6 +12,7 @@ import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
+import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuilder;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -120,27 +121,28 @@ public class CouponUsageStatsJobConfig {
                 ORDER BY r.member_id
                 """;
 
-        JdbcCursorItemReader<CouponUsageStatsDto> reader = new JdbcCursorItemReader<>();
-        reader.setDataSource(dataSource);
-        reader.setSql(sql);
-        reader.setRowMapper((rs, i) -> new CouponUsageStatsDto(
-                rs.getLong("memberId"),
-                rs.getString("topDong"),
-                rs.getInt("topHour")
-        ));
-        // MySQL 드라이버가 서버 커서를 흉내 내는 방식 때문에 커서 위치 검증을 시도하면 SQLException 발생
-        // MySQL에서는 이 검증이 의미 없고 오히려 실패를 일으킬 수 있어서 비활성화하는 게 안전
-        reader.setVerifyCursorPosition(false);
-        // 한 번에 DB에서 얼마나 많은 로우를 가져올지 결정하는 값
-        // MySQL 같은 운영 DB에서는 Integer.MIN_VALUE로 설정하면 서버 커서(스트리밍)를 활성화해 메모리 절약
-        reader.setFetchSize(Integer.MIN_VALUE);
-        reader.setPreparedStatementSetter(ps -> {
-            LocalDateTime from = runDateParam.minusDays(20).atStartOfDay(); // Job 실행 20일 전 00:00:00
-            LocalDateTime to = runDateParam.atStartOfDay().plusDays(1).minusSeconds(1); // Job 실행 당일 23:59:59
-            ps.setTimestamp(1, Timestamp.valueOf(from));
-            ps.setTimestamp(2, Timestamp.valueOf(to));
-        });
-        return reader;
+        return new JdbcCursorItemReaderBuilder<CouponUsageStatsDto>()
+                .name("couponUsageStatsReader")
+                .dataSource(dataSource)
+                .sql(sql)
+                .rowMapper((rs, i) -> new CouponUsageStatsDto(
+                        rs.getLong("memberId"),
+                        rs.getString("topDong"),
+                        rs.getInt("topHour")
+                ))
+                .preparedStatementSetter(ps -> {
+                    LocalDateTime from = runDateParam.minusDays(20).atStartOfDay(); // Job 실행 20일 전 00:00:00
+                    LocalDateTime to = runDateParam.atStartOfDay().plusDays(1).minusSeconds(1); // Job 실행 당일 23:59:59
+                    ps.setTimestamp(1, Timestamp.valueOf(from));
+                    ps.setTimestamp(2, Timestamp.valueOf(to));
+                })
+                // MySQL 드라이버가 서버 커서를 흉내 내는 방식 때문에 커서 위치 검증을 시도하면 SQLException 발생
+                // MySQL에서는 이 검증이 의미 없고 오히려 실패를 일으킬 수 있어서 비활성화하는 게 안전
+                .verifyCursorPosition(false)
+                // 한 번에 DB에서 얼마나 많은 로우를 가져올지 결정하는 값
+                // MySQL 같은 운영 DB에서는 Integer.MIN_VALUE로 설정하면 서버 커서(스트리밍)를 활성화해 메모리 절약
+                .fetchSize(Integer.MIN_VALUE)
+                .build();
     }
 
     @Bean

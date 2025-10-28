@@ -24,9 +24,7 @@ public class CouponUsageStatsJobController {
     private final JobRegistry jobRegistry;
 
     @PostMapping("/jobs/coupon-usage-stats")
-    public ResponseEntity<String> launchCouponUsageStatsJob(
-            @RequestParam LocalDate runDate
-    ) throws Exception {
+    public ResponseEntity<String> launchCouponUsageStatsJob(@RequestParam LocalDate runDate) {
         try {
             Job job = jobRegistry.getJob(COUPON_USAGE_STATS_JOB);
             JobParameters jobParameters = new JobParametersBuilder()
@@ -35,7 +33,7 @@ public class CouponUsageStatsJobController {
 
             jobLauncher.run(job, jobParameters);
 
-            ResponseEntity.status(HttpStatus.OK).body("쿠폰 사용 통계 집계 배치 작업이 성공적으로 시작되었습니다.");
+            return ResponseEntity.ok().body("쿠폰 사용 통계 집계 배치 작업이 성공적으로 시작되었습니다.");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("쿠폰 사용 통계 집계 배치 작업이 실패했습니다: " + e.getMessage());
         }
