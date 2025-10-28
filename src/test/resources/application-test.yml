@@ -1,0 +1,17 @@
+spring:
+  datasource:
+    url: jdbc:tc:mysql:8.0.36:///test-db
+    username: test
+    password: test
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver # Spring Boot 2.3 버전 이후부터 생략 가능
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+
+  batch:
+    jdbc:
+      initialize-schema: always
