@@ -1,6 +1,7 @@
 package com.sparta.couponpopbatch.batch;
 
 import com.sparta.couponpopbatch.domain.coupon.dto.CouponUsageStatsDto;
+import com.sparta.couponpopbatch.domain.coupon.enums.CouponStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -33,6 +34,7 @@ public class CouponUsageStatsJobConfig {
     public static final String COUPON_USAGE_STATS_STEP = "couponUsageStatsStep";
     private static final int CHUNK_SIZE = 1000;
     private static final int STATS_AGGREGATION_DAYS = 20;
+    private static final int COUPON_USAGE_COUNT_THRESHOLD = 5;
 
     private final DataSource dataSource;
     private final JobRepository jobRepository;
@@ -82,7 +84,15 @@ public class CouponUsageStatsJobConfig {
                     FROM coupon_histories ch
                         LEFT JOIN stores s ON ch.store_id = s.id
                     WHERE ch.created_at BETWEEN ? AND ?
-                        AND ch.coupon_status = 'ISSUED'
+                        AND ch.coupon_status = ?
+                ),
+                member_usage_counts AS (
+                    SELECT
+                        member_id,
+                        COUNT(*) AS total_usage_count
+                    FROM filtered
+                    GROUP BY member_id
+                    HAVING COUNT(*) >= ?
                 ),
                 dong_ranked AS (
                     SELECT
@@ -116,6 +126,7 @@ public class CouponUsageStatsJobConfig {
                     r.dong       AS topDong,
                     h.usage_hour AS topHour
                 FROM dong_ranked r
+                JOIN member_usage_counts muc ON muc.member_id = r.member_id
                 JOIN hour_ranked_by_dong h
                       ON h.member_id = r.member_id
                      AND h.dong      = r.dong
@@ -135,10 +146,13 @@ public class CouponUsageStatsJobConfig {
                         runDateParam
                 ))
                 .preparedStatementSetter(ps -> {
+                    // 20일 내 쿠폰을 5회 이상 사용한 손님을 대상으로 통계 집계
                     LocalDateTime from = runDateParam.minusDays(STATS_AGGREGATION_DAYS).atStartOfDay(); // Job 실행 20일 전 00:00:00
                     LocalDateTime to = runDateParam.atStartOfDay().plusDays(1).minusSeconds(1); // Job 실행 당일 23:59:59
                     ps.setTimestamp(1, Timestamp.valueOf(from));
                     ps.setTimestamp(2, Timestamp.valueOf(to));
+                    ps.setString(3, CouponStatus.ISSUED.name());
+                    ps.setInt(4, COUPON_USAGE_COUNT_THRESHOLD);
                 })
                 // MySQL 드라이버가 서버 커서를 흉내 내는 방식 때문에 커서 위치 검증을 시도하면 SQLException 발생
                 // MySQL에서는 이 검증이 의미 없고 오히려 실패를 일으킬 수 있어서 비활성화하는 게 안전

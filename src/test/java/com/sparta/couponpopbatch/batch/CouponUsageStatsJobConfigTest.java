@@ -75,9 +75,10 @@ class CouponUsageStatsJobConfigTest {
                 )
         );
 
-        assertThat(statsRows).hasSize(3);
+        assertThat(statsRows).hasSize(4);
 
         /*
+         * 1번 손님
          * - 동 카운트(요약): 상도동 2, 잠실동 2, 대치동 2, 서교동 2, 그 외 각 1
          * - top_dong = "서교동" (동률 2이지만 가장 최근 `2025-10-26T11:00:00`로 타이브레이크)
          * - top_hour = 11 (서교동 11시에 2건 -> 최다)
@@ -91,6 +92,7 @@ class CouponUsageStatsJobConfigTest {
                 });
 
         /*
+         * 2번 손님
          * - 동 카운트(요약): 상도동 2(최신 10-25), 대치동 2(최신 10-20), 잠실동 2(최신 10-23), 흑석동 2(최신 10-18), 그 외 각 1
          * - top_dong = "상도동" (동률 2 중 가장 최신 `2025-10-25T13:00:00`)
          * - top_hour = "13" (상도동 13시 1건 vs 12시 1건 → 최신 max_used_at으로 13시 선택)
@@ -104,6 +106,7 @@ class CouponUsageStatsJobConfigTest {
                 });
 
         /*
+         * 3번 손님
          * - 동 카운트(요약): 노량진동 19(전부 15:00), 상도동 1, 흑석동 1, 잠실동 1
          * - top_dong = "노량진동" (압도적 다수)
          * - top_hour = 15 (노량진동 전부 15시 사용)
@@ -114,6 +117,29 @@ class CouponUsageStatsJobConfigTest {
                 .satisfies(row -> {
                     assertThat(row.topDong()).isEqualTo("노량진동");
                     assertThat(row.topHour()).isEqualTo(15);
+                });
+
+        /*
+         * 4번 손님
+         * - 동 카운트(요약): 상도동 2(4개 중 2개는 20일 이전), 흑석동 1, 잠실동 1
+         * - 20일 내 쿠폰 총 사용량 5회 미만으로 집계 대상 아님
+         */
+        assertThat(statsRows)
+                .filteredOn(row -> row.memberId() == 4L)
+                .isEmpty();
+
+        /*
+         * 5번 손님
+         * - 동 카운트(요약): 상도동 1, 흑성동 1, 잠실동 3
+         * - top_dong = "잠실동"
+         * - top_hour = 13 (11시 vs 12시 vs 13시 각각 1건, 최신 max_used_at으로 13시 선택)
+         */
+        assertThat(statsRows)
+                .filteredOn(row -> row.memberId() == 5L)
+                .singleElement()
+                .satisfies(row -> {
+                    assertThat(row.topDong()).isEqualTo("잠실동");
+                    assertThat(row.topHour()).isEqualTo(13);
                 });
     }
 
