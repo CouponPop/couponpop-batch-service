@@ -45,6 +45,9 @@ dependencies {
     // [Testcontainers]
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:mysql'
+
+    // [Firebase Admin SDK]
+    implementation 'com.google.firebase:firebase-admin:9.7.0'
 }
 
 tasks.named('test') {
