@@ -70,8 +70,8 @@ public class CouponUsageStatsFcmSendJobConfig {
     @Bean
     @StepScope
     public JdbcCursorItemReader<CouponUsageStatsDto> couponUsageStatsFcmSendReader(
-            @Value("#{jobParameters['runDate']}") LocalDate runDateParam,
-            @Value("#{jobParameters['targetHour']}") Long targetHourParam,
+            @Value("#{jobParameters['runDate'] ?: null}") LocalDate runDateParam,
+            @Value("#{jobParameters['targetHour'] ?: null}") Long targetHourParam,
             Clock clock
     ) {
         // 커서 기반 스트리밍으로 대량 데이터를 안정적으로 읽고, 복잡한 최신 통계 조회 SQL을 실행한 결과를
@@ -125,8 +125,8 @@ public class CouponUsageStatsFcmSendJobConfig {
     public ItemProcessor<CouponUsageStatsDto, CouponUsageStatsFcmSendDto> couponUsageStatsFcmSendProcessor(
             MemberFcmTokenJdbcRepository memberFcmTokenJdbcRepository,
             CouponUsageStatsFcmSendJdbcRepository couponUsageStatsFcmSendJdbcRepository,
-            @Value("#{jobParameters['runDate']}") LocalDate runDateParam,
-            @Value("#{jobParameters['targetHour']}") Long targetHourParam,
+            @Value("#{jobParameters['runDate'] ?: null}") LocalDate runDateParam,
+            @Value("#{jobParameters['targetHour'] ?: null}") Long targetHourParam,
             Clock clock
     ) {
 
