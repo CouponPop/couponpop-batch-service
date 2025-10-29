@@ -46,7 +46,7 @@ public class CouponUsageStatsJobConfig {
             Step couponUsageStatsStep
     ) {
 
-        log.info("couponUsageStatsJob started");
+        log.info("{} started", COUPON_USAGE_STATS_JOB);
 
         return new JobBuilder(COUPON_USAGE_STATS_JOB, jobRepository)
                 .start(couponUsageStatsStep)
