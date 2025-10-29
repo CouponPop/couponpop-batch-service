@@ -54,8 +54,9 @@ class CouponUsageStatsJobConfigTest {
     @DisplayName("쿠폰 사용 기록을 집계하면 손님별 가장 많이 사용한 동과 시간대가 저장된다.")
     void runCouponUsageStatsJob_success_recordsWithinRange() throws Exception {
         // given
+        LocalDate runDateParam = LocalDate.of(2025, 10, 31);
         JobParameters jobParameters = new JobParametersBuilder()
-                .addLocalDate("runDate", LocalDate.of(2025, 10, 31)) // 2025년 10월 데이터까지 집계
+                .addLocalDate("runDate", runDateParam) // 2025년 10월 데이터까지 집계
                 .toJobParameters();
 
         // when
@@ -69,7 +70,8 @@ class CouponUsageStatsJobConfigTest {
                 (rs, rowNum) -> new CouponUsageStatsRow(
                         rs.getLong("member_id"),
                         rs.getString("top_dong"),
-                        rs.getInt("top_hour")
+                        rs.getInt("top_hour"),
+                        runDateParam
                 )
         );
 
@@ -115,7 +117,7 @@ class CouponUsageStatsJobConfigTest {
                 });
     }
 
-    private record CouponUsageStatsRow(long memberId, String topDong, int topHour) {
+    private record CouponUsageStatsRow(long memberId, String topDong, int topHour, LocalDate aggregatedAt) {
     }
 
 }

@@ -75,22 +75,24 @@ public class CouponUsageStatsJobConfig {
         String sql = """
                 WITH filtered AS (
                     SELECT
-                        cu.member_id,
-                        cu.dong,
-                        cu.used_at,
-                        HOUR(cu.used_at) AS usage_hour
-                    FROM coupon_usage cu
-                    WHERE cu.used_at BETWEEN ? AND ?
+                        ch.member_id,
+                        s.dong,
+                        ch.created_at,
+                        HOUR(ch.created_at) AS usage_hour
+                    FROM coupon_histories ch
+                        LEFT JOIN stores s ON ch.store_id = s.id
+                    WHERE ch.created_at BETWEEN ? AND ?
+                        AND ch.coupon_status = 'ISSUED'
                 ),
                 dong_ranked AS (
                     SELECT
                         member_id,
                         dong,
                         COUNT(*)      AS usage_count,
-                        MAX(used_at)  AS recent_used_at,
+                        MAX(created_at)  AS recent_used_at,
                         ROW_NUMBER() OVER (
                             PARTITION BY member_id
-                            ORDER BY COUNT(*) DESC, MAX(used_at) DESC, dong ASC  -- 동률 3순위 안정화
+                            ORDER BY COUNT(*) DESC, MAX(created_at) DESC, dong ASC  -- 동률 3순위 안정화
                         ) AS rn
                     FROM filtered
                     GROUP BY member_id, dong
@@ -101,10 +103,10 @@ public class CouponUsageStatsJobConfig {
                         dong,
                         usage_hour,
                         COUNT(*)      AS usage_count,
-                        MAX(used_at)  AS recent_used_at,
+                        MAX(created_at)  AS recent_used_at,
                         ROW_NUMBER() OVER (
                             PARTITION BY member_id, dong
-                            ORDER BY COUNT(*) DESC, MAX(used_at) DESC, usage_hour ASC  -- 동률 3순위 안정화
+                            ORDER BY COUNT(*) DESC, MAX(created_at) DESC, usage_hour ASC  -- 동률 3순위 안정화
                         ) AS rn
                     FROM filtered
                     GROUP BY member_id, dong, usage_hour
@@ -129,7 +131,8 @@ public class CouponUsageStatsJobConfig {
                 .rowMapper((rs, i) -> new CouponUsageStatsDto(
                         rs.getLong("memberId"),
                         rs.getString("topDong"),
-                        rs.getInt("topHour")
+                        rs.getInt("topHour"),
+                        runDateParam
                 ))
                 .preparedStatementSetter(ps -> {
                     LocalDateTime from = runDateParam.minusDays(STATS_AGGREGATION_DAYS).atStartOfDay(); // Job 실행 20일 전 00:00:00
@@ -150,12 +153,8 @@ public class CouponUsageStatsJobConfig {
     public JdbcBatchItemWriter<CouponUsageStatsDto> couponUsageStatsWriter() {
 
         String sql = """
-                    INSERT INTO coupon_usage_stats (member_id, top_dong, top_hour)
-                    VALUES (:memberId, :topDong, :topHour)
-                    ON DUPLICATE KEY UPDATE
-                        top_dong = VALUES(top_dong),
-                        top_hour = VALUES(top_hour),
-                        updated_at = CURRENT_TIMESTAMP
+                    INSERT INTO coupon_usage_stats (member_id, top_dong, top_hour, aggregated_at)
+                    VALUES (:memberId, :topDong, :topHour, :aggregatedAt)
                 """;
 
         return new JdbcBatchItemWriterBuilder<CouponUsageStatsDto>()
