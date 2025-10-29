@@ -151,7 +151,7 @@ public class CouponUsageStatsJobConfig {
                     LocalDateTime to = runDateParam.atStartOfDay().plusDays(1).minusSeconds(1); // Job 실행 당일 23:59:59
                     ps.setTimestamp(1, Timestamp.valueOf(from));
                     ps.setTimestamp(2, Timestamp.valueOf(to));
-                    ps.setString(3, CouponStatus.ISSUED.name());
+                    ps.setString(3, CouponStatus.USED.name());
                     ps.setInt(4, COUPON_USAGE_COUNT_THRESHOLD);
                 })
                 // MySQL 드라이버가 서버 커서를 흉내 내는 방식 때문에 커서 위치 검증을 시도하면 SQLException 발생
