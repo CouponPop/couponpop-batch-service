@@ -14,33 +14,38 @@ import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
-import static com.sparta.couponpopbatch.batch.CouponUsageStatsJobConfig.COUPON_USAGE_STATS_JOB;
+import static com.sparta.couponpopbatch.batch.CouponUsageStatsFcmSendJobConfig.COUPON_USAGE_STATS_FCM_SEND_JOB;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class CouponUsageStatsScheduler {
+public class CouponUsageStatsFcmSendScheduler {
 
     private final JobLauncher jobLauncher;
     private final JobRegistry jobRegistry;
     private final Clock clock;
 
-    // 매일 새벽 1시에 실행
-    @Scheduled(cron = "0 0 1 * * *")
-    public void runCouponUsageStatsJob() {
+    // 정각마다 실행
+    @Scheduled(cron = "0 0 * * * *")
+    public void runCouponUsageStatsFcmSendJob() {
         try {
-            Job job = jobRegistry.getJob(COUPON_USAGE_STATS_JOB);
+            LocalDate nowDate = LocalDate.now(clock);
+            long targetHour = LocalDateTime.now(clock).getHour();
+
+            Job job = jobRegistry.getJob(COUPON_USAGE_STATS_FCM_SEND_JOB);
             JobParameters jobParameters = new JobParametersBuilder()
-                    .addLocalDate("runDate", LocalDate.now(clock).minusDays(1))
+                    .addLocalDate("runDate", nowDate)
+                    .addLong("targetHour", targetHour)
                     .toJobParameters();
 
             jobLauncher.run(job, jobParameters);
         } catch (JobExecutionAlreadyRunningException | JobRestartException e) {
-            log.warn("쿠폰 사용 이력 집계 배치가 이미 실행 중이거나 재시작 불가한 배치입니다: {}", e.getMessage());
+            log.warn("쿠폰 사용 통계 기반 FCM 알림 발송 배치가 이미 실행 중이거나 재시작 불가한 배치입니다: {}", e.getMessage());
         } catch (Exception e) {
             // 스케줄링 작업 실패 시 로그 기록
-            log.error("쿠폰 사용 이력 집계 배치 스케줄링 작업이 실패했습니다: {}", e.getMessage(), e);
+            log.error("쿠폰 사용 통계 기반 FCM 알림 발송 배치 스케줄링 작업이 실패했습니다: {}", e.getMessage(), e);
         }
     }
 }
