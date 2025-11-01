@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: coupon-pop-batch
+    name: batch-service
 
   config:
     import: optional:file:.env[.properties]
