@@ -4,9 +4,9 @@ plugins {
     id 'io.spring.dependency-management' version '1.1.7'
 }
 
-group = 'com.sparta'
+group = 'com.couponpop'
 version = '0.0.1-SNAPSHOT'
-description = 'coupon-pop-batch'
+description = 'couponpop-batch'
 
 java {
     toolchain {
