@@ -6,11 +6,7 @@ import com.couponpop.couponpopcoremodule.dto.store.response.StoreRegionInfoRespo
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.batch.core.BatchStatus;
-import org.springframework.batch.core.Job;
-import org.springframework.batch.core.JobExecution;
-import org.springframework.batch.core.JobParameters;
-import org.springframework.batch.core.JobParametersBuilder;
+import org.springframework.batch.core.*;
 import org.springframework.batch.test.JobLauncherTestUtils;
 import org.springframework.batch.test.context.SpringBatchTest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -177,12 +173,7 @@ class CouponUsageStatsJobConfigTest {
         );
 
         List<StoreRegionInfoResponse> responses = storeDongMap.entrySet().stream()
-                .map(entry -> {
-                    StoreRegionInfoResponse mockResponse = mock(StoreRegionInfoResponse.class);
-                    when(mockResponse.storeId()).thenReturn(entry.getKey());
-                    when(mockResponse.dong()).thenReturn(entry.getValue());
-                    return mockResponse;
-                })
+                .map(entry -> new StoreRegionInfoResponse(entry.getKey(), entry.getValue()))
                 .toList();
 
         @SuppressWarnings("unchecked")
