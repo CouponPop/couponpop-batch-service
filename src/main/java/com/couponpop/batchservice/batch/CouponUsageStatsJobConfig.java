@@ -124,7 +124,7 @@ public class CouponUsageStatsJobConfig {
         Comparator<MemberUsageAggregation> dongComparator = Comparator
                 .comparingLong(MemberUsageAggregation::usageCount)
                 .thenComparing(MemberUsageAggregation::recentUsedAt)
-                .thenComparing(MemberUsageAggregation::dong, Comparator.reverseOrder());
+                .thenComparing(MemberUsageAggregation::dong);
 
         Comparator<MemberUsageAggregation> hourComparator = Comparator
                 .comparingLong(MemberUsageAggregation::usageCount)
