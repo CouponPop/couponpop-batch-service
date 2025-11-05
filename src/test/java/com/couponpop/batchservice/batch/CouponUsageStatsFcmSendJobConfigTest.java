@@ -107,25 +107,14 @@ class CouponUsageStatsFcmSendJobConfigTest {
 
         // RabbitMQ로 전송된 메시지를 모두 모아 토큰별 발송이 이뤄졌는지 검증한다.
         ArgumentCaptor<CouponUsageStatsFcmSendRequest> messageCaptor = ArgumentCaptor.forClass(CouponUsageStatsFcmSendRequest.class);
-        verify(couponUsageStatsFcmSendPublisher, times(2)).publish(messageCaptor.capture());
+        verify(couponUsageStatsFcmSendPublisher, times(1)).publish(messageCaptor.capture());
 
-        List<CouponUsageStatsFcmSendRequest> requests = messageCaptor.getAllValues();
-        assertThat(requests).hasSize(2);
-        assertThat(requests)
-                .extracting(CouponUsageStatsFcmSendRequest::memberId)
-                .containsOnly(101L);
-        assertThat(requests)
-                .extracting(CouponUsageStatsFcmSendRequest::token)
-                .containsExactlyInAnyOrder("token-101-a", "token-101-b");
-        assertThat(requests)
-                .extracting(CouponUsageStatsFcmSendRequest::topDong)
-                .containsOnly("노량진동");
-        assertThat(requests)
-                .extracting(CouponUsageStatsFcmSendRequest::topHour)
-                .containsOnly(10);
-        assertThat(requests)
-                .extracting(CouponUsageStatsFcmSendRequest::activeEventCount)
-                .containsOnly(3);
+        CouponUsageStatsFcmSendRequest request = messageCaptor.getValue();
+        assertThat(request.memberId()).isEqualTo(101L);
+        assertThat(request.tokens()).containsExactlyInAnyOrder("token-101-a", "token-101-b");
+        assertThat(request.topDong()).isEqualTo("노량진동");
+        assertThat(request.topHour()).isEqualTo(10);
+        assertThat(request.activeEventCount()).isEqualTo(3);
 
         verify(notificationFeignClient).fetchFcmTokensByMemberIds(eq(List.of(101L)));
         verify(storeFeignClient).fetchStoreIdsByDongs(eq(List.of("노량진동")));
@@ -153,25 +142,14 @@ class CouponUsageStatsFcmSendJobConfigTest {
         assertThat(jobExecution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
 
         ArgumentCaptor<CouponUsageStatsFcmSendRequest> messageCaptor = ArgumentCaptor.forClass(CouponUsageStatsFcmSendRequest.class);
-        verify(couponUsageStatsFcmSendPublisher, times(2)).publish(messageCaptor.capture());
+        verify(couponUsageStatsFcmSendPublisher, times(1)).publish(messageCaptor.capture());
 
-        List<CouponUsageStatsFcmSendRequest> requests = messageCaptor.getAllValues();
-        assertThat(requests).hasSize(2);
-        assertThat(requests)
-                .extracting(CouponUsageStatsFcmSendRequest::memberId)
-                .containsOnly(101L);
-        assertThat(requests)
-                .extracting(CouponUsageStatsFcmSendRequest::token)
-                .containsExactlyInAnyOrder("token-101-a", "token-101-b");
-        assertThat(requests)
-                .extracting(CouponUsageStatsFcmSendRequest::topDong)
-                .containsOnly("풍무동");
-        assertThat(requests)
-                .extracting(CouponUsageStatsFcmSendRequest::topHour)
-                .containsOnly(16);
-        assertThat(requests)
-                .extracting(CouponUsageStatsFcmSendRequest::activeEventCount)
-                .containsOnly(3);
+        CouponUsageStatsFcmSendRequest request = messageCaptor.getValue();
+        assertThat(request.memberId()).isEqualTo(101L);
+        assertThat(request.tokens()).containsExactlyInAnyOrder("token-101-a", "token-101-b");
+        assertThat(request.topDong()).isEqualTo("풍무동");
+        assertThat(request.topHour()).isEqualTo(16);
+        assertThat(request.activeEventCount()).isEqualTo(3);
 
         verify(notificationFeignClient).fetchFcmTokensByMemberIds(eq(List.of(101L)));
         verify(storeFeignClient).fetchStoreIdsByDongs(eq(List.of("풍무동")));
@@ -197,25 +175,14 @@ class CouponUsageStatsFcmSendJobConfigTest {
         assertThat(jobExecution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
 
         ArgumentCaptor<CouponUsageStatsFcmSendRequest> messageCaptor = ArgumentCaptor.forClass(CouponUsageStatsFcmSendRequest.class);
-        verify(couponUsageStatsFcmSendPublisher, times(2)).publish(messageCaptor.capture());
+        verify(couponUsageStatsFcmSendPublisher, times(1)).publish(messageCaptor.capture());
 
-        List<CouponUsageStatsFcmSendRequest> requests = messageCaptor.getAllValues();
-        assertThat(requests).hasSize(2);
-        assertThat(requests)
-                .extracting(CouponUsageStatsFcmSendRequest::memberId)
-                .containsOnly(101L);
-        assertThat(requests)
-                .extracting(CouponUsageStatsFcmSendRequest::token)
-                .containsExactlyInAnyOrder("token-101-a", "token-101-b");
-        assertThat(requests)
-                .extracting(CouponUsageStatsFcmSendRequest::topDong)
-                .containsOnly("풍무동");
-        assertThat(requests)
-                .extracting(CouponUsageStatsFcmSendRequest::topHour)
-                .containsOnly(16);
-        assertThat(requests)
-                .extracting(CouponUsageStatsFcmSendRequest::activeEventCount)
-                .containsOnly(3);
+        CouponUsageStatsFcmSendRequest request = messageCaptor.getValue();
+        assertThat(request.memberId()).isEqualTo(101L);
+        assertThat(request.tokens()).containsExactlyInAnyOrder("token-101-a", "token-101-b");
+        assertThat(request.topDong()).isEqualTo("풍무동");
+        assertThat(request.topHour()).isEqualTo(16);
+        assertThat(request.activeEventCount()).isEqualTo(3);
 
         verify(notificationFeignClient).fetchFcmTokensByMemberIds(eq(List.of(101L)));
         verify(storeFeignClient).fetchStoreIdsByDongs(eq(List.of("풍무동")));

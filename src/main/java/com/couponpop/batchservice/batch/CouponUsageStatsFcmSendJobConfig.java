@@ -197,11 +197,8 @@ public class CouponUsageStatsFcmSendJobConfig {
                     continue;
                 }
 
-                log.info("알림 발송 시작");
-                for (String token : tokens) {
-                    CouponUsageStatsFcmSendRequest couponUsageStatsFcmSendRequest = CouponUsageStatsFcmSendRequest.of(memberId, token, topDong, topHour, activeEventCount);
-                    couponUsageStatsFcmSendPublisher.publish(couponUsageStatsFcmSendRequest);
-                }
+                CouponUsageStatsFcmSendRequest couponUsageStatsFcmSendRequest = CouponUsageStatsFcmSendRequest.of(memberId, tokens, topDong, topHour, activeEventCount);
+                couponUsageStatsFcmSendPublisher.publish(couponUsageStatsFcmSendRequest);
             }
         };
     }
