@@ -1,11 +1,11 @@
 package com.couponpop.batchservice.common.rabbitmq.publisher;
 
+import com.couponpop.batchservice.common.properties.CouponUsageStatsFcmSendProperties;
 import com.couponpop.batchservice.common.rabbitmq.dto.request.CouponUsageStatsFcmSendRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -14,17 +14,13 @@ import org.springframework.stereotype.Service;
 public class CouponUsageStatsFcmSendPublisher {
 
     private final RabbitTemplate rabbitTemplate;
-
-    @Value("${rabbitmq.coupon-usage-stats-fcm-send.exchange}")
-    private String couponUsageStatsFcmSendExchange;
-    @Value("${rabbitmq.coupon-usage-stats-fcm-send.routing-key}")
-    private String couponUsageStatsFcmSendRoutingKey;
+    private final CouponUsageStatsFcmSendProperties properties;
 
     public void publish(CouponUsageStatsFcmSendRequest message) {
         try {
             rabbitTemplate.convertAndSend(
-                    couponUsageStatsFcmSendExchange,
-                    couponUsageStatsFcmSendRoutingKey,
+                    properties.exchange(),
+                    properties.routingKey(),
                     message
             );
         } catch (AmqpException e) {
