@@ -16,3 +16,8 @@ logging:
     org.springframework: INFO
     org.hibernate.SQL: WARN
     org.hibernate.orm.jdbc.bind: WARN
+
+client:
+  store-service:
+    name: store-service
+    url: http://store.couponpop.internal:8080

@@ -1,20 +1,3 @@
--- members 테이블 생성
-DROP TABLE IF EXISTS members;
-CREATE TABLE members
-(
-    id          BIGINT AUTO_INCREMENT PRIMARY KEY,
-    member_type ENUM ('OWNER', 'CUSTOMER') NOT NULL
-);
-
--- stores 테이블 생성
-DROP TABLE IF EXISTS stores;
-CREATE TABLE stores
-(
-    id        BIGINT AUTO_INCREMENT PRIMARY KEY,
-    member_id BIGINT       NOT NULL,
-    dong      VARCHAR(100) NOT NULL
-);
-
 -- coupon_histories 테이블 생성
 DROP TABLE IF EXISTS coupon_histories;
 CREATE TABLE coupon_histories
