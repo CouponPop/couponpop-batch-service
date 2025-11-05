@@ -1,7 +1,11 @@
 package com.couponpop.batchservice.batch;
 
+import com.couponpop.batchservice.common.client.StoreFeignClient;
 import com.couponpop.batchservice.domain.coupon.dto.CouponUsageStatsDto;
 import com.couponpop.batchservice.domain.coupon.enums.CouponStatus;
+import com.couponpop.batchservice.domain.couponhistory.repository.CouponHistoryJdbcRepository;
+import com.couponpop.batchservice.domain.couponhistory.repository.projection.CouponHistoryUsedInfoProjection;
+import com.couponpop.couponpopcoremodule.dto.store.response.StoreRegionInfoResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -11,9 +15,8 @@ import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
-import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
-import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuilder;
+import org.springframework.batch.item.support.ListItemReader;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -21,9 +24,14 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
-import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Slf4j
 @Configuration
@@ -33,6 +41,7 @@ public class CouponUsageStatsJobConfig {
     public static final String COUPON_USAGE_STATS_JOB = "couponUsageStatsJob";
     public static final String COUPON_USAGE_STATS_STEP = "couponUsageStatsStep";
     private static final int CHUNK_SIZE = 1000;
+    private static final int STORE_FEIGN_CHUNK_SIZE = 200;
     private static final int STATS_AGGREGATION_DAYS = 20;
     private static final int COUPON_USAGE_COUNT_THRESHOLD = 5;
 
@@ -56,7 +65,7 @@ public class CouponUsageStatsJobConfig {
     @Bean
     public Step couponUsageStatsStep(
             @Qualifier("couponUsageStatsReader")
-            JdbcCursorItemReader<CouponUsageStatsDto> couponUsageStatsReader,
+            ListItemReader<CouponUsageStatsDto> couponUsageStatsReader,
             @Qualifier("couponUsageStatsWriter")
             JdbcBatchItemWriter<CouponUsageStatsDto> couponUsageStatsWriter
     ) {
@@ -68,100 +77,132 @@ public class CouponUsageStatsJobConfig {
                 .build();
     }
 
+    private List<StoreRegionInfoResponse> fetchStoresRegionChunked(StoreFeignClient storeFeignClient, List<Long> storeIds) {
+
+        if (storeIds.isEmpty()) {
+            return List.of();
+        }
+
+        int chunkCount = (int) Math.ceil((double) storeIds.size() / STORE_FEIGN_CHUNK_SIZE);
+
+        return IntStream.range(0, chunkCount)
+                .mapToObj(index -> {
+                    int from = index * STORE_FEIGN_CHUNK_SIZE;
+                    int to = Math.min(storeIds.size(), from + STORE_FEIGN_CHUNK_SIZE);
+                    List<Long> chunk = storeIds.subList(from, to);
+                    return storeFeignClient.fetchStoresRegionByIds(chunk).getData();
+                })
+                .flatMap(List::stream)
+                .toList();
+    }
+
     @Bean
     @StepScope
-    public JdbcCursorItemReader<CouponUsageStatsDto> couponUsageStatsReader(
+    public ListItemReader<CouponUsageStatsDto> couponUsageStatsReader(
+            CouponHistoryJdbcRepository couponHistoryJdbcRepository,
+            StoreFeignClient storeFeignClient,
             @Value("#{jobParameters['runDate']}") LocalDate runDateParam
     ) {
 
-        // TODO: 멤버, 쿠폰, 매장
-        String sql = """
-                WITH filtered AS (
-                    SELECT
-                        ch.member_id,
-                        s.dong,
-                        ch.created_at,
-                        HOUR(ch.created_at) AS usage_hour
-                    FROM coupon_histories ch
-                        LEFT JOIN stores s ON ch.store_id = s.id
-                    WHERE ch.created_at BETWEEN ? AND ?
-                        AND ch.coupon_status = ?
-                ),
-                member_usage_counts AS (
-                    SELECT
-                        member_id,
-                        COUNT(*) AS total_usage_count
-                    FROM filtered
-                    GROUP BY member_id
-                    HAVING COUNT(*) >= ?
-                ),
-                dong_ranked AS (
-                    SELECT
-                        member_id,
-                        dong,
-                        COUNT(*)      AS usage_count,
-                        MAX(created_at)  AS recent_used_at,
-                        ROW_NUMBER() OVER (
-                            PARTITION BY member_id
-                            ORDER BY COUNT(*) DESC, MAX(created_at) DESC, dong ASC  -- 동률 3순위 안정화
-                        ) AS rn
-                    FROM filtered
-                    GROUP BY member_id, dong
-                ),
-                hour_ranked_by_dong AS (
-                    SELECT
-                        member_id,
-                        dong,
-                        usage_hour,
-                        COUNT(*)      AS usage_count,
-                        MAX(created_at)  AS recent_used_at,
-                        ROW_NUMBER() OVER (
-                            PARTITION BY member_id, dong
-                            ORDER BY COUNT(*) DESC, MAX(created_at) DESC, usage_hour ASC  -- 동률 3순위 안정화
-                        ) AS rn
-                    FROM filtered
-                    GROUP BY member_id, dong, usage_hour
-                )
-                SELECT
-                    r.member_id  AS memberId,
-                    r.dong       AS topDong,
-                    h.usage_hour AS topHour
-                FROM dong_ranked r
-                JOIN member_usage_counts muc ON muc.member_id = r.member_id
-                JOIN hour_ranked_by_dong h
-                      ON h.member_id = r.member_id
-                     AND h.dong      = r.dong
-                     AND h.rn        = 1
-                WHERE r.rn = 1
-                ORDER BY r.member_id
-                """;
+        LocalDateTime from = runDateParam.minusDays(STATS_AGGREGATION_DAYS).atStartOfDay(); // Job 실행 20일 전 00:00:00
+        LocalDateTime to = runDateParam.atStartOfDay().plusDays(1).minusSeconds(1); // Job 실행 당일 23:59:59
 
-        return new JdbcCursorItemReaderBuilder<CouponUsageStatsDto>()
-                .name("couponUsageStatsReader")
-                .dataSource(dataSource)
-                .sql(sql)
-                .rowMapper((rs, i) -> new CouponUsageStatsDto(
-                        rs.getLong("memberId"),
-                        rs.getString("topDong"),
-                        rs.getInt("topHour"),
-                        runDateParam
+        List<CouponHistoryUsedInfoProjection> couponHistoriesUsedInfos = couponHistoryJdbcRepository.findCouponHistoriesUsedInfo(CouponStatus.USED, from, to);
+        List<Long> storeIds = couponHistoriesUsedInfos.stream()
+                .map(CouponHistoryUsedInfoProjection::storeId)
+                .distinct()
+                .toList();
+
+        List<StoreRegionInfoResponse> storeRegionInfoResponses = fetchStoresRegionChunked(storeFeignClient, storeIds);
+        Map<Long, String> storeDongMap = storeRegionInfoResponses.stream()
+                .collect(Collectors.toMap(
+                        StoreRegionInfoResponse::storeId,
+                        StoreRegionInfoResponse::dong,
+                        (latest, ignored) -> latest // 중복 키 충돌 시 최신 값 유지
+                ));
+
+        List<MemberUsage> filtered = couponHistoriesUsedInfos.stream()
+                .map(history -> new MemberUsage(
+                        history.memberId(),
+                        storeDongMap.get(history.storeId()),
+                        history.createdAt(),
+                        history.createdAt().getHour()
                 ))
-                .preparedStatementSetter(ps -> {
-                    // 20일 내 쿠폰을 5회 이상 사용한 손님을 대상으로 통계 집계
-                    LocalDateTime from = runDateParam.minusDays(STATS_AGGREGATION_DAYS).atStartOfDay(); // Job 실행 20일 전 00:00:00
-                    LocalDateTime to = runDateParam.atStartOfDay().plusDays(1).minusSeconds(1); // Job 실행 당일 23:59:59
-                    ps.setTimestamp(1, Timestamp.valueOf(from));
-                    ps.setTimestamp(2, Timestamp.valueOf(to));
-                    ps.setString(3, CouponStatus.USED.name());
-                    ps.setInt(4, COUPON_USAGE_COUNT_THRESHOLD);
+                .filter(usage -> usage.dong() != null) // 동 정보 없는 데이터는 제외
+                .toList();
+
+        Map<Long, Long> memberUsageCounts = filtered.stream()
+                .collect(Collectors.groupingBy(
+                        MemberUsage::memberId,
+                        Collectors.counting()
+                ));
+
+        Set<Long> eligibleMembers = memberUsageCounts.entrySet().stream()
+                .filter(entry -> entry.getValue() >= COUPON_USAGE_COUNT_THRESHOLD)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
+
+        Comparator<MemberUsageAggregation> dongComparator = Comparator
+                .comparingLong(MemberUsageAggregation::usageCount)
+                .thenComparing(MemberUsageAggregation::recentUsedAt)
+                .thenComparing(MemberUsageAggregation::dong);
+
+        Comparator<MemberUsageAggregation> hourComparator = Comparator
+                .comparingLong(MemberUsageAggregation::usageCount)
+                .thenComparing(MemberUsageAggregation::recentUsedAt)
+                .thenComparingInt(MemberUsageAggregation::usageHour);
+
+        List<CouponUsageStatsDto> results = filtered.stream()
+                .filter(usage -> eligibleMembers.contains(usage.memberId()))
+                .collect(Collectors.groupingBy(MemberUsage::memberId))
+                .entrySet()
+                .stream()
+                .map(entry -> {
+                    Long memberId = entry.getKey();
+                    List<MemberUsage> usages = entry.getValue();
+
+                    MemberUsageAggregation topDong = usages.stream()
+                            .collect(Collectors.groupingBy(MemberUsage::dong))
+                            .entrySet()
+                            .stream()
+                            .map(dongEntry -> new MemberUsageAggregation(
+                                    memberId,
+                                    dongEntry.getKey(),
+                                    null,
+                                    dongEntry.getValue().size(),
+                                    dongEntry.getValue().stream()
+                                            .map(MemberUsage::usedAt)
+                                            .max(LocalDateTime::compareTo)
+                                            .orElse(LocalDateTime.MIN)
+                            ))
+                            .max(dongComparator)
+                            .orElseThrow();
+
+                    int topHour = usages.stream()
+                            .filter(usage -> usage.dong().equals(topDong.dong()))
+                            .collect(Collectors.groupingBy(MemberUsage::usageHour))
+                            .entrySet()
+                            .stream()
+                            .map(hourEntry -> new MemberUsageAggregation(
+                                    memberId,
+                                    topDong.dong(),
+                                    hourEntry.getKey(),
+                                    hourEntry.getValue().size(),
+                                    hourEntry.getValue().stream()
+                                            .map(MemberUsage::usedAt)
+                                            .max(LocalDateTime::compareTo)
+                                            .orElse(LocalDateTime.MIN)
+                            ))
+                            .max(hourComparator)
+                            .orElseThrow()
+                            .usageHour;
+
+                    return new CouponUsageStatsDto(memberId, topDong.dong(), topHour, runDateParam);
                 })
-                // MySQL 드라이버가 서버 커서를 흉내 내는 방식 때문에 커서 위치 검증을 시도하면 SQLException 발생
-                // MySQL에서는 이 검증이 의미 없고 오히려 실패를 일으킬 수 있어서 비활성화하는 게 안전
-                .verifyCursorPosition(false)
-                // 한 번에 DB에서 얼마나 많은 로우를 가져올지 결정하는 값
-                // MySQL 같은 운영 DB에서는 Integer.MIN_VALUE로 설정하면 서버 커서(스트리밍)를 활성화해 메모리 절약
-                .fetchSize(Integer.MIN_VALUE)
-                .build();
+                .sorted(Comparator.comparing(CouponUsageStatsDto::memberId))
+                .toList();
+
+        return new ListItemReader<>(results);
     }
 
     @Bean
@@ -178,6 +219,18 @@ public class CouponUsageStatsJobConfig {
                 .beanMapped() // DTO 필드를 SQL 파라미터에 매핑
                 .assertUpdates(true) // 업데이트된 행 수를 확인
                 .build();
+    }
+
+    private record MemberUsage(Long memberId, String dong, LocalDateTime usedAt, int usageHour) {
+    }
+
+    private record MemberUsageAggregation(
+            Long memberId,
+            String dong,
+            Integer usageHour,
+            long usageCount,
+            LocalDateTime recentUsedAt
+    ) {
     }
 
 }

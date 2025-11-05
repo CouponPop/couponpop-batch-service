@@ -1,20 +1,3 @@
--- member 더미 데이터 삽입
-INSERT INTO members (member_type)
-VALUES ('OWNER');
-
-
--- stores 더미 데이터 삽입
-INSERT INTO stores (member_id, dong)
-VALUES (1, '상도동'),
-       (1, '흑석동'),
-       (1, '잠실동'),
-       (1, '대치동'),
-       (1, '역삼동'),
-       (1, '서교동'),
-       (1, '연남동'),
-       (1, '잠실동'),
-       (1, '노량진동');
-
 -- coupon_hisrories 더미 데이터 삽입
 INSERT INTO coupon_histories (member_id, coupon_id, store_id, coupon_event_id, coupon_status, created_at)
 VALUES (1, 200, 9, 1, 'USED', '2025-10-07 08:15:00'),

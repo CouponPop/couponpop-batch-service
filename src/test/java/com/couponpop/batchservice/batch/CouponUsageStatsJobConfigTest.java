@@ -1,5 +1,8 @@
 package com.couponpop.batchservice.batch;
 
+import com.couponpop.batchservice.common.client.StoreFeignClient;
+import com.couponpop.batchservice.common.response.ApiResponse;
+import com.couponpop.couponpopcoremodule.dto.store.response.StoreRegionInfoResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,13 +15,18 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.jdbc.Sql;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @ActiveProfiles("test")
 @SpringBatchTest
@@ -45,9 +53,13 @@ class CouponUsageStatsJobConfigTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @MockitoBean
+    private StoreFeignClient storeFeignClient;
+
     @BeforeEach
     void setUp() {
         jobLauncherTestUtils.setJob(couponUsageStatsJob);
+        mockStoreFeignClient();
     }
 
     @Test
@@ -66,12 +78,12 @@ class CouponUsageStatsJobConfigTest {
         assertThat(jobExecution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
 
         List<CouponUsageStatsRow> statsRows = jdbcTemplate.query(
-                "SELECT member_id, top_dong, top_hour FROM coupon_usage_stats ORDER BY member_id",
+                "SELECT member_id, top_dong, top_hour, aggregated_at FROM coupon_usage_stats ORDER BY member_id",
                 (rs, rowNum) -> new CouponUsageStatsRow(
                         rs.getLong("member_id"),
                         rs.getString("top_dong"),
                         rs.getInt("top_hour"),
-                        runDateParam
+                        rs.getDate("aggregated_at").toLocalDate()
                 )
         );
 
@@ -89,6 +101,7 @@ class CouponUsageStatsJobConfigTest {
                 .satisfies(row -> {
                     assertThat(row.topDong()).isEqualTo("서교동");
                     assertThat(row.topHour()).isEqualTo(11);
+                    assertThat(row.aggregatedAt()).isEqualTo(runDateParam);
                 });
 
         /*
@@ -103,6 +116,7 @@ class CouponUsageStatsJobConfigTest {
                 .satisfies(row -> {
                     assertThat(row.topDong()).isEqualTo("상도동");
                     assertThat(row.topHour()).isEqualTo(13);
+                    assertThat(row.aggregatedAt()).isEqualTo(runDateParam);
                 });
 
         /*
@@ -117,6 +131,7 @@ class CouponUsageStatsJobConfigTest {
                 .satisfies(row -> {
                     assertThat(row.topDong()).isEqualTo("노량진동");
                     assertThat(row.topHour()).isEqualTo(15);
+                    assertThat(row.aggregatedAt()).isEqualTo(runDateParam);
                 });
 
         /*
@@ -140,7 +155,31 @@ class CouponUsageStatsJobConfigTest {
                 .satisfies(row -> {
                     assertThat(row.topDong()).isEqualTo("잠실동");
                     assertThat(row.topHour()).isEqualTo(13);
+                    assertThat(row.aggregatedAt()).isEqualTo(runDateParam);
                 });
+    }
+
+    private void mockStoreFeignClient() {
+        Map<Long, String> storeDongMap = Map.ofEntries(
+                Map.entry(1L, "상도동"),
+                Map.entry(2L, "흑석동"),
+                Map.entry(3L, "잠실동"),
+                Map.entry(4L, "대치동"),
+                Map.entry(5L, "역삼동"),
+                Map.entry(6L, "서교동"),
+                Map.entry(7L, "연남동"),
+                Map.entry(8L, "잠실동"),
+                Map.entry(9L, "노량진동")
+        );
+
+        List<StoreRegionInfoResponse> responses = storeDongMap.entrySet().stream()
+                .map(entry -> new StoreRegionInfoResponse(entry.getKey(), entry.getValue()))
+                .toList();
+
+        @SuppressWarnings("unchecked")
+        ApiResponse<List<StoreRegionInfoResponse>> apiResponse = mock(ApiResponse.class);
+        when(apiResponse.getData()).thenReturn(responses);
+        when(storeFeignClient.fetchStoresRegionByIds(anyList())).thenReturn(apiResponse);
     }
 
     private record CouponUsageStatsRow(long memberId, String topDong, int topHour, LocalDate aggregatedAt) {

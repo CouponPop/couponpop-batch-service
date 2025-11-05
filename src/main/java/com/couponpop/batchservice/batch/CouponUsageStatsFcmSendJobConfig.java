@@ -136,6 +136,7 @@ public class CouponUsageStatsFcmSendJobConfig {
             log.info("processor item: {}", item);
 
             // 회원 토큰 조회
+            // TODO: Feign Client로 변경 + Writer 단계로 이전하여 IN Query 방식 적용 검토
             List<String> tokens = memberFcmTokenJdbcRepository.findEnabledTokensByMemberId(item.memberId());
             log.info("회원 {}의 활성화된 FCM 토큰들: {}", item.memberId(), tokens);
             if (tokens.isEmpty()) {
@@ -147,6 +148,7 @@ public class CouponUsageStatsFcmSendJobConfig {
             int referenceHour = targetHourParam != null ? targetHourParam.intValue() : LocalDateTime.now(clock).getHour();
             LocalDateTime referenceTime = LocalDateTime.of(referenceDate, LocalTime.of(referenceHour, 0));
 
+            // TODO: CQRS 패턴
             // topDong에서 진행 중인 쿠폰 이벤트 개수 조회
             int eventCount = couponUsageStatsFcmSendJdbcRepository.countActiveCouponEventsByDong(item.topDong(), referenceTime);
             log.info("회원 {}의 topDong '{}'에서 기준 시각 '{}'에 진행 중인 쿠폰 이벤트 개수: {}", item.memberId(), item.topDong(), referenceTime, eventCount);
