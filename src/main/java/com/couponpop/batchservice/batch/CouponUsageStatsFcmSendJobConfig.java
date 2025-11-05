@@ -181,6 +181,10 @@ public class CouponUsageStatsFcmSendJobConfig {
 
                 // topDong에 해당하는 매장 IDs를 IN 쿼리 조건으로 사용하여 진행 중인 쿠폰 이벤트 개수 조회
                 List<Long> storeIds = dongToStoreIdsMap.get(topDong);
+                if (storeIds == null || storeIds.isEmpty()) {
+                    log.info("회원 {}의 topDong '{}'에 해당하는 매장이 없어 제외되었습니다.", memberId, topDong);
+                    continue;
+                }
                 int activeEventCount = couponEventJdbcRepository.countActiveCouponEventsByStoreIds(storeIds, referenceTime);
                 log.info("회원 {}의 topDong '{}'의 기준 시각 '{}'에 매장 IDs {}에서 진행 중인 쿠폰 이벤트 개수: {}",
                         memberId, topDong, referenceTime, storeIds, activeEventCount);
