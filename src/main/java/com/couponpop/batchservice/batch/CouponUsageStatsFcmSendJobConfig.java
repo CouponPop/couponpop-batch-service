@@ -144,10 +144,10 @@ public class CouponUsageStatsFcmSendJobConfig {
                     .toList();
 
             // 회원별 FCM 토큰 조회
-            List<FcmTokensResponse> FcmTokensResponses = notificationFeignClient.fetchFcmTokensByMemberIds(memberIds).getData();
+            List<FcmTokensResponse> fcmTokensResponses = notificationFeignClient.fetchFcmTokensByMemberIds(memberIds).getData();
 
             // memberId -> FCM Token List 매핑 생성
-            Map<Long, List<String>> memberIdToTokensMap = FcmTokensResponses.stream()
+            Map<Long, List<String>> memberIdToTokensMap = fcmTokensResponses.stream()
                     .collect(Collectors.toMap(
                             FcmTokensResponse::memberId,
                             FcmTokensResponse::fcmTokens
