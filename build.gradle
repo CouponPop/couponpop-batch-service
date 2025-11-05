@@ -58,6 +58,7 @@ repositories {
 
 dependencyManagement {
     imports {
+        mavenBom "io.awspring.cloud:spring-cloud-aws-dependencies:3.1.1"
         mavenBom "org.springframework.cloud:spring-cloud-dependencies:2025.0.0"
     }
 }
@@ -84,11 +85,8 @@ dependencies {
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:mysql'
 
-    // [Firebase Admin SDK]
-    implementation 'com.google.firebase:firebase-admin:9.7.0'
-
     // [CouponPop Core Module]
-    implementation 'com.couponpop:couponpop-core:0.0.4-SNAPSHOT'
+    implementation 'com.couponpop:couponpop-core:0.0.5-SNAPSHOT'
 
     // [OpenFeign]
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
@@ -96,6 +94,9 @@ dependencies {
     // [Jackson]
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
+
+    // [AWS]
+    implementation 'io.awspring.cloud:spring-cloud-aws-starter-parameter-store'
 }
 
 tasks.named('test') {
