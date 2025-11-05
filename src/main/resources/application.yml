@@ -25,6 +25,12 @@ spring:
     job:
       enabled: false
 
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+
 client:
   store-service:
     name: store-service
@@ -32,3 +38,9 @@ client:
   notification-service:
     name: notification-service
     url: http://localhost:8084
+
+rabbitmq:
+  coupon-usage-stats-fcm-send:
+    exchange: coupon.usage.stats.fcm.send.exchange
+    queue: coupon.usage.stats.fcm.send.queue
+    routing-key: coupon.usage.stats.fcm.send.routing.key

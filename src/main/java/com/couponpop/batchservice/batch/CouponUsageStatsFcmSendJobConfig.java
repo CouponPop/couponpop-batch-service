@@ -2,6 +2,8 @@ package com.couponpop.batchservice.batch;
 
 import com.couponpop.batchservice.common.client.NotificationFeignClient;
 import com.couponpop.batchservice.common.client.StoreFeignClient;
+import com.couponpop.batchservice.common.rabbitmq.dto.request.CouponUsageStatsFcmSendRequest;
+import com.couponpop.batchservice.common.rabbitmq.publisher.CouponUsageStatsFcmSendPublisher;
 import com.couponpop.batchservice.domain.coupon.dto.CouponUsageStatsDto;
 import com.couponpop.batchservice.domain.couponevent.repository.CouponEventJdbcRepository;
 import com.couponpop.couponpopcoremodule.dto.fcmtoken.response.FcmTokensResponse;
@@ -129,7 +131,8 @@ public class CouponUsageStatsFcmSendJobConfig {
             @Value("#{jobParameters['runDate'] ?: null}") LocalDate runDateParam,
             @Value("#{jobParameters['targetHour'] ?: null}") Long targetHourParam,
             Clock clock,
-            CouponEventJdbcRepository couponEventJdbcRepository
+            CouponEventJdbcRepository couponEventJdbcRepository,
+            CouponUsageStatsFcmSendPublisher couponUsageStatsFcmSendPublisher
     ) {
 
         LocalDate referenceDate = runDateParam != null ? runDateParam : LocalDate.now(clock);
@@ -194,10 +197,8 @@ public class CouponUsageStatsFcmSendJobConfig {
                     continue;
                 }
 
-                log.info("알림 발송 시작");
-                for (String token : tokens) {
-                    // TODO: 알림 발송 (RabbitMQ 메세지 큐로 비동기 전송)
-                }
+                CouponUsageStatsFcmSendRequest couponUsageStatsFcmSendRequest = CouponUsageStatsFcmSendRequest.of(memberId, tokens, topDong, topHour, activeEventCount);
+                couponUsageStatsFcmSendPublisher.publish(couponUsageStatsFcmSendRequest);
             }
         };
     }
