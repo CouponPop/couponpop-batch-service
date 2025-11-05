@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Slf4j
 @Configuration
@@ -40,6 +41,7 @@ public class CouponUsageStatsJobConfig {
     public static final String COUPON_USAGE_STATS_JOB = "couponUsageStatsJob";
     public static final String COUPON_USAGE_STATS_STEP = "couponUsageStatsStep";
     private static final int CHUNK_SIZE = 1000;
+    private static final int STORE_FEIGN_CHUNK_SIZE = 200;
     private static final int STATS_AGGREGATION_DAYS = 20;
     private static final int COUPON_USAGE_COUNT_THRESHOLD = 5;
 
@@ -75,6 +77,25 @@ public class CouponUsageStatsJobConfig {
                 .build();
     }
 
+    private List<StoreRegionInfoResponse> fetchStoresRegionChunked(StoreFeignClient storeFeignClient, List<Long> storeIds) {
+
+        if (storeIds.isEmpty()) {
+            return List.of();
+        }
+
+        int chunkCount = (int) Math.ceil((double) storeIds.size() / STORE_FEIGN_CHUNK_SIZE);
+
+        return IntStream.range(0, chunkCount)
+                .mapToObj(index -> {
+                    int from = index * STORE_FEIGN_CHUNK_SIZE;
+                    int to = Math.min(storeIds.size(), from + STORE_FEIGN_CHUNK_SIZE);
+                    List<Long> chunk = storeIds.subList(from, to);
+                    return storeFeignClient.fetchStoresRegionByIds(chunk).getData();
+                })
+                .flatMap(List::stream)
+                .toList();
+    }
+
     @Bean
     @StepScope
     public ListItemReader<CouponUsageStatsDto> couponUsageStatsReader(
@@ -92,7 +113,7 @@ public class CouponUsageStatsJobConfig {
                 .distinct()
                 .toList();
 
-        List<StoreRegionInfoResponse> storeRegionInfoResponses = storeFeignClient.fetchStoresRegionByIds(storeIds).getData();
+        List<StoreRegionInfoResponse> storeRegionInfoResponses = fetchStoresRegionChunked(storeFeignClient, storeIds);
         Map<Long, String> storeDongMap = storeRegionInfoResponses.stream()
                 .collect(Collectors.toMap(
                         StoreRegionInfoResponse::storeId,
