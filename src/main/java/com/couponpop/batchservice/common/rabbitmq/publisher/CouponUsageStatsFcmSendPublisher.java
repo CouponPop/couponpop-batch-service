@@ -1,5 +1,6 @@
-package com.couponpop.batchservice.common.rabbitmq.service;
+package com.couponpop.batchservice.common.rabbitmq.publisher;
 
+import com.couponpop.batchservice.common.rabbitmq.dto.request.CouponUsageStatsFcmSendRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.AmqpException;
@@ -10,7 +11,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class RabbitMQServiceImpl implements RabbitMQService {
+public class CouponUsageStatsFcmSendPublisher {
 
     private final RabbitTemplate rabbitTemplate;
 
@@ -19,8 +20,7 @@ public class RabbitMQServiceImpl implements RabbitMQService {
     @Value("${rabbitmq.coupon-usage-stats-fcm-send.routing-key}")
     private String couponUsageStatsFcmSendRoutingKey;
 
-    @Override
-    public void sendMessage(Object message) {
+    public void publish(CouponUsageStatsFcmSendRequest message) {
         try {
             rabbitTemplate.convertAndSend(
                     couponUsageStatsFcmSendExchange,

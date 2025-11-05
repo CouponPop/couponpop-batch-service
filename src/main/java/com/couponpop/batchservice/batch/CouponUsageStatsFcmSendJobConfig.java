@@ -3,7 +3,7 @@ package com.couponpop.batchservice.batch;
 import com.couponpop.batchservice.common.client.NotificationFeignClient;
 import com.couponpop.batchservice.common.client.StoreFeignClient;
 import com.couponpop.batchservice.common.rabbitmq.dto.request.CouponUsageStatsFcmSendRequest;
-import com.couponpop.batchservice.common.rabbitmq.service.RabbitMQService;
+import com.couponpop.batchservice.common.rabbitmq.publisher.CouponUsageStatsFcmSendPublisher;
 import com.couponpop.batchservice.domain.coupon.dto.CouponUsageStatsDto;
 import com.couponpop.batchservice.domain.couponevent.repository.CouponEventJdbcRepository;
 import com.couponpop.couponpopcoremodule.dto.fcmtoken.response.FcmTokensResponse;
@@ -132,7 +132,7 @@ public class CouponUsageStatsFcmSendJobConfig {
             @Value("#{jobParameters['targetHour'] ?: null}") Long targetHourParam,
             Clock clock,
             CouponEventJdbcRepository couponEventJdbcRepository,
-            RabbitMQService rabbitMQService
+            CouponUsageStatsFcmSendPublisher couponUsageStatsFcmSendPublisher
     ) {
 
         LocalDate referenceDate = runDateParam != null ? runDateParam : LocalDate.now(clock);
@@ -200,7 +200,7 @@ public class CouponUsageStatsFcmSendJobConfig {
                 log.info("알림 발송 시작");
                 for (String token : tokens) {
                     CouponUsageStatsFcmSendRequest couponUsageStatsFcmSendRequest = CouponUsageStatsFcmSendRequest.of(memberId, token, topDong, topHour, activeEventCount);
-                    rabbitMQService.sendMessage(couponUsageStatsFcmSendRequest);
+                    couponUsageStatsFcmSendPublisher.publish(couponUsageStatsFcmSendRequest);
                 }
             }
         };

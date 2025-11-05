@@ -1,7 +1,5 @@
 -- 배치 테스트용 스키마 초기화
-DROP TABLE IF EXISTS member_fcm_tokens;
 DROP TABLE IF EXISTS coupon_events;
-DROP TABLE IF EXISTS stores;
 DROP TABLE IF EXISTS coupon_usage_stats;
 
 CREATE TABLE coupon_usage_stats
@@ -14,28 +12,12 @@ CREATE TABLE coupon_usage_stats
     created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE stores
-(
-    id   BIGINT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    dong VARCHAR(255) NOT NULL
-);
-
 CREATE TABLE coupon_events
 (
     id             BIGINT AUTO_INCREMENT PRIMARY KEY,
-    store_id       BIGINT     NOT NULL,
-    event_start_at DATETIME   NOT NULL,
-    event_end_at   DATETIME   NOT NULL,
-    total_count    INT        NOT NULL,
-    issued_count   INT        NOT NULL
-);
-
-CREATE TABLE member_fcm_tokens
-(
-    id                     BIGINT AUTO_INCREMENT PRIMARY KEY,
-    member_id              BIGINT       NOT NULL,
-    fcm_token              VARCHAR(255) NOT NULL,
-    notification_enabled   BOOLEAN      NOT NULL,
-    last_used_at           DATETIME     NULL
+    store_id       BIGINT   NOT NULL,
+    event_start_at DATETIME NOT NULL,
+    event_end_at   DATETIME NOT NULL,
+    total_count    INT      NOT NULL,
+    issued_count   INT      NOT NULL
 );
