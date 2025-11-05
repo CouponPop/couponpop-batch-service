@@ -25,10 +25,10 @@ spring:
     job:
       enabled: false
 
-fcm:
-  firebase-config-path: "classpath:firebase/serviceAccountKey.json"
-
 client:
   store-service:
     name: store-service
     url: http://localhost:8082
+  notification-service:
+    name: notification-service
+    url: http://localhost:8084
