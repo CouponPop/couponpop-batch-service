@@ -87,7 +87,7 @@ dependencies {
     testImplementation 'org.testcontainers:mysql'
 
     // [CouponPop Security Module]
-    implementation 'com.couponpop:couponpop-security:0.0.2-SNAPSHOT'
+    implementation 'com.couponpop:couponpop-security:0.0.3-SNAPSHOT'
 
     // [CouponPop Core Module]
     implementation 'com.couponpop:couponpop-core:0.0.5-SNAPSHOT'
