@@ -1,7 +1,7 @@
 package com.couponpop.batchservice.batch;
 
-import com.couponpop.batchservice.common.client.NotificationFeignClient;
-import com.couponpop.batchservice.common.client.StoreFeignClient;
+import com.couponpop.batchservice.common.client.NotificationSystemFeignClient;
+import com.couponpop.batchservice.common.client.StoreSystemFeignClient;
 import com.couponpop.batchservice.common.rabbitmq.dto.request.CouponUsageStatsFcmSendRequest;
 import com.couponpop.batchservice.common.rabbitmq.publisher.CouponUsageStatsFcmSendPublisher;
 import com.couponpop.batchservice.common.response.ApiResponse;
@@ -62,10 +62,10 @@ class CouponUsageStatsFcmSendJobConfigTest {
     private Job couponUsageStatsFcmSendJob;
 
     @MockitoBean
-    private NotificationFeignClient notificationFeignClient;
+    private NotificationSystemFeignClient notificationSystemFeignClient;
 
     @MockitoBean
-    private StoreFeignClient storeFeignClient;
+    private StoreSystemFeignClient storeSystemFeignClient;
 
     @MockitoBean
     private CouponUsageStatsFcmSendPublisher couponUsageStatsFcmSendPublisher;
@@ -77,7 +77,7 @@ class CouponUsageStatsFcmSendJobConfigTest {
     void setUp() {
         jobLauncherTestUtils.setJob(couponUsageStatsFcmSendJob);
 
-        reset(notificationFeignClient, storeFeignClient, couponUsageStatsFcmSendPublisher, clock);
+        reset(notificationSystemFeignClient, storeSystemFeignClient, couponUsageStatsFcmSendPublisher, clock);
 
         when(clock.getZone()).thenReturn(KST);
         when(clock.instant()).thenAnswer(invocation -> nowRef.get());
@@ -116,9 +116,9 @@ class CouponUsageStatsFcmSendJobConfigTest {
         assertThat(request.topHour()).isEqualTo(10);
         assertThat(request.activeEventCount()).isEqualTo(3);
 
-        verify(notificationFeignClient).fetchFcmTokensByMemberIds(eq(List.of(101L)));
-        verify(storeFeignClient).fetchStoreIdsByDongs(eq(List.of("노량진동")));
-        verifyNoMoreInteractions(notificationFeignClient, storeFeignClient, couponUsageStatsFcmSendPublisher);
+        verify(notificationSystemFeignClient).fetchFcmTokensByMemberIds(eq(List.of(101L)));
+        verify(storeSystemFeignClient).fetchStoreIdsByDongs(eq(List.of("노량진동")));
+        verifyNoMoreInteractions(notificationSystemFeignClient, storeSystemFeignClient, couponUsageStatsFcmSendPublisher);
     }
 
     @Test
@@ -151,9 +151,9 @@ class CouponUsageStatsFcmSendJobConfigTest {
         assertThat(request.topHour()).isEqualTo(16);
         assertThat(request.activeEventCount()).isEqualTo(3);
 
-        verify(notificationFeignClient).fetchFcmTokensByMemberIds(eq(List.of(101L)));
-        verify(storeFeignClient).fetchStoreIdsByDongs(eq(List.of("풍무동")));
-        verifyNoMoreInteractions(notificationFeignClient, storeFeignClient, couponUsageStatsFcmSendPublisher);
+        verify(notificationSystemFeignClient).fetchFcmTokensByMemberIds(eq(List.of(101L)));
+        verify(storeSystemFeignClient).fetchStoreIdsByDongs(eq(List.of("풍무동")));
+        verifyNoMoreInteractions(notificationSystemFeignClient, storeSystemFeignClient, couponUsageStatsFcmSendPublisher);
     }
 
     @Test
@@ -184,9 +184,9 @@ class CouponUsageStatsFcmSendJobConfigTest {
         assertThat(request.topHour()).isEqualTo(16);
         assertThat(request.activeEventCount()).isEqualTo(3);
 
-        verify(notificationFeignClient).fetchFcmTokensByMemberIds(eq(List.of(101L)));
-        verify(storeFeignClient).fetchStoreIdsByDongs(eq(List.of("풍무동")));
-        verifyNoMoreInteractions(notificationFeignClient, storeFeignClient, couponUsageStatsFcmSendPublisher);
+        verify(notificationSystemFeignClient).fetchFcmTokensByMemberIds(eq(List.of(101L)));
+        verify(storeSystemFeignClient).fetchStoreIdsByDongs(eq(List.of("풍무동")));
+        verifyNoMoreInteractions(notificationSystemFeignClient, storeSystemFeignClient, couponUsageStatsFcmSendPublisher);
     }
 
     private void setNow(LocalDateTime ldtKst) {
@@ -200,11 +200,11 @@ class CouponUsageStatsFcmSendJobConfigTest {
 
         FcmTokensResponse tokensResponse = new FcmTokensResponse(memberId, tokens);
         when(apiResponse.getData()).thenReturn(List.of(tokensResponse));
-        when(notificationFeignClient.fetchFcmTokensByMemberIds(anyList())).thenReturn(apiResponse);
+        when(notificationSystemFeignClient.fetchFcmTokensByMemberIds(anyList())).thenReturn(apiResponse);
     }
 
     private void mockStoreFeignResponse(Map<String, List<Long>> storeIdsByDong) {
-        when(storeFeignClient.fetchStoreIdsByDongs(anyList())).thenAnswer(invocation -> {
+        when(storeSystemFeignClient.fetchStoreIdsByDongs(anyList())).thenAnswer(invocation -> {
             List<String> requestedDongs = invocation.getArgument(0);
             // 요청된 동마다 매장 ID 리스트를 반환해 실제 Feign 응답과 동일한 구조를 재현한다.
             List<StoreIdsByDongResponse> responses = requestedDongs.stream()

@@ -1,7 +1,7 @@
 package com.couponpop.batchservice.batch;
 
-import com.couponpop.batchservice.common.client.NotificationFeignClient;
-import com.couponpop.batchservice.common.client.StoreFeignClient;
+import com.couponpop.batchservice.common.client.NotificationSystemFeignClient;
+import com.couponpop.batchservice.common.client.StoreSystemFeignClient;
 import com.couponpop.batchservice.common.rabbitmq.dto.request.CouponUsageStatsFcmSendRequest;
 import com.couponpop.batchservice.common.rabbitmq.publisher.CouponUsageStatsFcmSendPublisher;
 import com.couponpop.batchservice.domain.coupon.dto.CouponUsageStatsDto;
@@ -126,8 +126,8 @@ public class CouponUsageStatsFcmSendJobConfig {
     @Bean
     @StepScope
     public ItemWriter<CouponUsageStatsDto> couponUsageStatsFcmSendWriter(
-            NotificationFeignClient notificationFeignClient,
-            StoreFeignClient storeFeignClient,
+            NotificationSystemFeignClient notificationSystemFeignClient,
+            StoreSystemFeignClient storeSystemFeignClient,
             @Value("#{jobParameters['runDate'] ?: null}") LocalDate runDateParam,
             @Value("#{jobParameters['targetHour'] ?: null}") Long targetHourParam,
             Clock clock,
@@ -147,7 +147,7 @@ public class CouponUsageStatsFcmSendJobConfig {
                     .toList();
 
             // 회원별 FCM 토큰 조회
-            List<FcmTokensResponse> fcmTokensResponses = notificationFeignClient.fetchFcmTokensByMemberIds(memberIds).getData();
+            List<FcmTokensResponse> fcmTokensResponses = notificationSystemFeignClient.fetchFcmTokensByMemberIds(memberIds).getData();
 
             // memberId -> FCM Token List 매핑 생성
             Map<Long, List<String>> memberIdToTokensMap = fcmTokensResponses.stream()
@@ -161,7 +161,7 @@ public class CouponUsageStatsFcmSendJobConfig {
                     .map(CouponUsageStatsDto::topDong)
                     .distinct()
                     .toList();
-            List<StoreIdsByDongResponse> storeIdsByDongResponses = storeFeignClient.fetchStoreIdsByDongs(topDongs).getData();
+            List<StoreIdsByDongResponse> storeIdsByDongResponses = storeSystemFeignClient.fetchStoreIdsByDongs(topDongs).getData();
 
             // dong -> Store ID List 매핑 생성
             Map<String, List<Long>> dongToStoreIdsMap = storeIdsByDongResponses.stream()

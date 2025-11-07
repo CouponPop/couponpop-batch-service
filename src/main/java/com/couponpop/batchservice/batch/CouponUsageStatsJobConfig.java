@@ -1,6 +1,6 @@
 package com.couponpop.batchservice.batch;
 
-import com.couponpop.batchservice.common.client.StoreFeignClient;
+import com.couponpop.batchservice.common.client.StoreSystemFeignClient;
 import com.couponpop.batchservice.domain.coupon.dto.CouponUsageStatsDto;
 import com.couponpop.batchservice.domain.coupon.enums.CouponStatus;
 import com.couponpop.batchservice.domain.couponhistory.repository.CouponHistoryJdbcRepository;
@@ -77,7 +77,7 @@ public class CouponUsageStatsJobConfig {
                 .build();
     }
 
-    private List<StoreRegionInfoResponse> fetchStoresRegionChunked(StoreFeignClient storeFeignClient, List<Long> storeIds) {
+    private List<StoreRegionInfoResponse> fetchStoresRegionChunked(StoreSystemFeignClient storeSystemFeignClient, List<Long> storeIds) {
 
         if (storeIds.isEmpty()) {
             return List.of();
@@ -90,7 +90,7 @@ public class CouponUsageStatsJobConfig {
                     int from = index * STORE_FEIGN_CHUNK_SIZE;
                     int to = Math.min(storeIds.size(), from + STORE_FEIGN_CHUNK_SIZE);
                     List<Long> chunk = storeIds.subList(from, to);
-                    return storeFeignClient.fetchStoresRegionByIds(chunk).getData();
+                    return storeSystemFeignClient.fetchStoresRegionByIds(chunk).getData();
                 })
                 .flatMap(List::stream)
                 .toList();
@@ -100,7 +100,7 @@ public class CouponUsageStatsJobConfig {
     @StepScope
     public ListItemReader<CouponUsageStatsDto> couponUsageStatsReader(
             CouponHistoryJdbcRepository couponHistoryJdbcRepository,
-            StoreFeignClient storeFeignClient,
+            StoreSystemFeignClient storeSystemFeignClient,
             @Value("#{jobParameters['runDate']}") LocalDate runDateParam
     ) {
 
@@ -113,7 +113,7 @@ public class CouponUsageStatsJobConfig {
                 .distinct()
                 .toList();
 
-        List<StoreRegionInfoResponse> storeRegionInfoResponses = fetchStoresRegionChunked(storeFeignClient, storeIds);
+        List<StoreRegionInfoResponse> storeRegionInfoResponses = fetchStoresRegionChunked(storeSystemFeignClient, storeIds);
         Map<Long, String> storeDongMap = storeRegionInfoResponses.stream()
                 .collect(Collectors.toMap(
                         StoreRegionInfoResponse::storeId,

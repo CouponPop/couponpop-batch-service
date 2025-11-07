@@ -1,6 +1,6 @@
 package com.couponpop.batchservice.batch;
 
-import com.couponpop.batchservice.common.client.StoreFeignClient;
+import com.couponpop.batchservice.common.client.StoreSystemFeignClient;
 import com.couponpop.batchservice.common.response.ApiResponse;
 import com.couponpop.couponpopcoremodule.dto.store.response.StoreRegionInfoResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,7 +54,7 @@ class CouponUsageStatsJobConfigTest {
     private JdbcTemplate jdbcTemplate;
 
     @MockitoBean
-    private StoreFeignClient storeFeignClient;
+    private StoreSystemFeignClient storeSystemFeignClient;
 
     @BeforeEach
     void setUp() {
@@ -179,7 +179,7 @@ class CouponUsageStatsJobConfigTest {
         @SuppressWarnings("unchecked")
         ApiResponse<List<StoreRegionInfoResponse>> apiResponse = mock(ApiResponse.class);
         when(apiResponse.getData()).thenReturn(responses);
-        when(storeFeignClient.fetchStoresRegionByIds(anyList())).thenReturn(apiResponse);
+        when(storeSystemFeignClient.fetchStoresRegionByIds(anyList())).thenReturn(apiResponse);
     }
 
     private record CouponUsageStatsRow(long memberId, String topDong, int topHour, LocalDate aggregatedAt) {

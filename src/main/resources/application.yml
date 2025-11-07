@@ -39,6 +39,23 @@ client:
     name: notification-service
     url: http://localhost:8084
 
+jwt:
+  secret:
+    key: ${JWT_SECRET_KEY}
+    white-list:
+      - /actuator/health
+      - /actuator/prometheus
+      - /error
+      - /swagger-ui/**
+      - /swagger-ui.html
+      - /v3/api-docs/**
+      - /v3/api-docs.yaml
+      - /v3/api-docs.json
+      - /api-docs/**
+      - /swagger-resources/**
+      - /webjars/**
+      - /docs/**
+
 rabbitmq:
   coupon-usage-stats-fcm-send:
     exchange: coupon.usage.stats.fcm.send.exchange
