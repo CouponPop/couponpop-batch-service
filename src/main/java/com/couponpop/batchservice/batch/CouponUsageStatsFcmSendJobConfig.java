@@ -197,8 +197,10 @@ public class CouponUsageStatsFcmSendJobConfig {
                     continue;
                 }
 
-                CouponUsageStatsFcmSendMessage couponUsageStatsFcmSendMessage = CouponUsageStatsFcmSendMessage.of(memberId, tokens, topDong, topHour, activeEventCount);
-                couponUsageStatsFcmSendPublisher.publish(couponUsageStatsFcmSendMessage);
+                for (String token : tokens) {
+                    CouponUsageStatsFcmSendMessage couponUsageStatsFcmSendMessage = CouponUsageStatsFcmSendMessage.of(memberId, token, topDong, topHour, activeEventCount);
+                    couponUsageStatsFcmSendPublisher.publish(couponUsageStatsFcmSendMessage);
+                }
             }
         };
     }
