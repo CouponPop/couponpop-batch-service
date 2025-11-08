@@ -14,7 +14,7 @@ import static com.couponpop.couponpopcoremodule.constants.RabbitMqExchanges.COUP
 @RequiredArgsConstructor
 public class CouponUsageStatsFcmSendPublisher {
 
-    public static final String COUPON_USAGE_STATS_FCM_SEND_ROUTING_KEY = "coupon.usage.stats.fcm.send";
+    private static final String COUPON_USAGE_STATS_FCM_SEND_ROUTING_KEY = "coupon.usage.stats.fcm.send";
 
     private final RabbitTemplate rabbitTemplate;
 
