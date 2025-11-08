@@ -55,9 +55,3 @@ jwt:
       - /swagger-resources/**
       - /webjars/**
       - /docs/**
-
-rabbitmq:
-  coupon-usage-stats-fcm-send:
-    exchange: coupon.usage.stats.fcm.send.exchange
-    queue: coupon.usage.stats.fcm.send.queue
-    routing-key: coupon.usage.stats.fcm.send.routing.key
