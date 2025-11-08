@@ -2,9 +2,9 @@ package com.couponpop.batchservice.batch;
 
 import com.couponpop.batchservice.common.client.NotificationSystemFeignClient;
 import com.couponpop.batchservice.common.client.StoreSystemFeignClient;
-import com.couponpop.batchservice.common.rabbitmq.dto.request.CouponUsageStatsFcmSendRequest;
 import com.couponpop.batchservice.common.rabbitmq.publisher.CouponUsageStatsFcmSendPublisher;
 import com.couponpop.batchservice.common.response.ApiResponse;
+import com.couponpop.couponpopcoremodule.dto.coupon.event.model.CouponUsageStatsFcmSendMessage;
 import com.couponpop.couponpopcoremodule.dto.fcmtoken.response.FcmTokensResponse;
 import com.couponpop.couponpopcoremodule.dto.store.response.StoreIdsByDongResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -106,10 +106,10 @@ class CouponUsageStatsFcmSendJobConfigTest {
         assertThat(jobExecution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
 
         // RabbitMQ로 전송된 메시지를 모두 모아 토큰별 발송이 이뤄졌는지 검증한다.
-        ArgumentCaptor<CouponUsageStatsFcmSendRequest> messageCaptor = ArgumentCaptor.forClass(CouponUsageStatsFcmSendRequest.class);
+        ArgumentCaptor<CouponUsageStatsFcmSendMessage> messageCaptor = ArgumentCaptor.forClass(CouponUsageStatsFcmSendMessage.class);
         verify(couponUsageStatsFcmSendPublisher, times(1)).publish(messageCaptor.capture());
 
-        CouponUsageStatsFcmSendRequest request = messageCaptor.getValue();
+        CouponUsageStatsFcmSendMessage request = messageCaptor.getValue();
         assertThat(request.memberId()).isEqualTo(101L);
         assertThat(request.tokens()).containsExactlyInAnyOrder("token-101-a", "token-101-b");
         assertThat(request.topDong()).isEqualTo("노량진동");
@@ -141,10 +141,10 @@ class CouponUsageStatsFcmSendJobConfigTest {
         // then
         assertThat(jobExecution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
 
-        ArgumentCaptor<CouponUsageStatsFcmSendRequest> messageCaptor = ArgumentCaptor.forClass(CouponUsageStatsFcmSendRequest.class);
+        ArgumentCaptor<CouponUsageStatsFcmSendMessage> messageCaptor = ArgumentCaptor.forClass(CouponUsageStatsFcmSendMessage.class);
         verify(couponUsageStatsFcmSendPublisher, times(1)).publish(messageCaptor.capture());
 
-        CouponUsageStatsFcmSendRequest request = messageCaptor.getValue();
+        CouponUsageStatsFcmSendMessage request = messageCaptor.getValue();
         assertThat(request.memberId()).isEqualTo(101L);
         assertThat(request.tokens()).containsExactlyInAnyOrder("token-101-a", "token-101-b");
         assertThat(request.topDong()).isEqualTo("풍무동");
@@ -174,10 +174,10 @@ class CouponUsageStatsFcmSendJobConfigTest {
         // then
         assertThat(jobExecution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
 
-        ArgumentCaptor<CouponUsageStatsFcmSendRequest> messageCaptor = ArgumentCaptor.forClass(CouponUsageStatsFcmSendRequest.class);
+        ArgumentCaptor<CouponUsageStatsFcmSendMessage> messageCaptor = ArgumentCaptor.forClass(CouponUsageStatsFcmSendMessage.class);
         verify(couponUsageStatsFcmSendPublisher, times(1)).publish(messageCaptor.capture());
 
-        CouponUsageStatsFcmSendRequest request = messageCaptor.getValue();
+        CouponUsageStatsFcmSendMessage request = messageCaptor.getValue();
         assertThat(request.memberId()).isEqualTo(101L);
         assertThat(request.tokens()).containsExactlyInAnyOrder("token-101-a", "token-101-b");
         assertThat(request.topDong()).isEqualTo("풍무동");

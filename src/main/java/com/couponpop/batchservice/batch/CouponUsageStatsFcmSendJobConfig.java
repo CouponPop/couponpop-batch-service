@@ -2,10 +2,10 @@ package com.couponpop.batchservice.batch;
 
 import com.couponpop.batchservice.common.client.NotificationSystemFeignClient;
 import com.couponpop.batchservice.common.client.StoreSystemFeignClient;
-import com.couponpop.batchservice.common.rabbitmq.dto.request.CouponUsageStatsFcmSendRequest;
 import com.couponpop.batchservice.common.rabbitmq.publisher.CouponUsageStatsFcmSendPublisher;
 import com.couponpop.batchservice.domain.coupon.dto.CouponUsageStatsDto;
 import com.couponpop.batchservice.domain.couponevent.repository.CouponEventJdbcRepository;
+import com.couponpop.couponpopcoremodule.dto.coupon.event.model.CouponUsageStatsFcmSendMessage;
 import com.couponpop.couponpopcoremodule.dto.fcmtoken.response.FcmTokensResponse;
 import com.couponpop.couponpopcoremodule.dto.store.response.StoreIdsByDongResponse;
 import lombok.RequiredArgsConstructor;
@@ -71,9 +71,9 @@ public class CouponUsageStatsFcmSendJobConfig {
     @Bean
     @StepScope
     public JdbcCursorItemReader<CouponUsageStatsDto> couponUsageStatsFcmSendReader(
+            Clock clock,
             @Value("#{jobParameters['runDate'] ?: null}") LocalDate runDateParam,
-            @Value("#{jobParameters['targetHour'] ?: null}") Long targetHourParam,
-            Clock clock
+            @Value("#{jobParameters['targetHour'] ?: null}") Long targetHourParam
     ) {
         // 커서 기반 스트리밍으로 대량 데이터를 안정적으로 읽고, 복잡한 최신 통계 조회 SQL을 실행한 결과를
         // 그대로 순차 처리하기 위해 JdbcCursorItemReader를 사용한다. 페이징 방식 대비 커넥션 재생성이나
@@ -126,13 +126,13 @@ public class CouponUsageStatsFcmSendJobConfig {
     @Bean
     @StepScope
     public ItemWriter<CouponUsageStatsDto> couponUsageStatsFcmSendWriter(
+            Clock clock,
             NotificationSystemFeignClient notificationSystemFeignClient,
             StoreSystemFeignClient storeSystemFeignClient,
-            @Value("#{jobParameters['runDate'] ?: null}") LocalDate runDateParam,
-            @Value("#{jobParameters['targetHour'] ?: null}") Long targetHourParam,
-            Clock clock,
             CouponEventJdbcRepository couponEventJdbcRepository,
-            CouponUsageStatsFcmSendPublisher couponUsageStatsFcmSendPublisher
+            CouponUsageStatsFcmSendPublisher couponUsageStatsFcmSendPublisher,
+            @Value("#{jobParameters['runDate'] ?: null}") LocalDate runDateParam,
+            @Value("#{jobParameters['targetHour'] ?: null}") Long targetHourParam
     ) {
 
         LocalDate referenceDate = runDateParam != null ? runDateParam : LocalDate.now(clock);
@@ -197,8 +197,8 @@ public class CouponUsageStatsFcmSendJobConfig {
                     continue;
                 }
 
-                CouponUsageStatsFcmSendRequest couponUsageStatsFcmSendRequest = CouponUsageStatsFcmSendRequest.of(memberId, tokens, topDong, topHour, activeEventCount);
-                couponUsageStatsFcmSendPublisher.publish(couponUsageStatsFcmSendRequest);
+                CouponUsageStatsFcmSendMessage couponUsageStatsFcmSendMessage = CouponUsageStatsFcmSendMessage.of(memberId, tokens, topDong, topHour, activeEventCount);
+                couponUsageStatsFcmSendPublisher.publish(couponUsageStatsFcmSendMessage);
             }
         };
     }
