@@ -8,6 +8,7 @@ import com.couponpop.batchservice.domain.couponevent.repository.CouponEventJdbcR
 import com.couponpop.couponpopcoremodule.dto.coupon.event.model.CouponUsageStatsFcmSendMessage;
 import com.couponpop.couponpopcoremodule.dto.fcmtoken.response.FcmTokensResponse;
 import com.couponpop.couponpopcoremodule.dto.store.response.StoreIdsByDongResponse;
+import com.couponpop.couponpopcoremodule.utils.NotificationTraceIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -198,7 +199,9 @@ public class CouponUsageStatsFcmSendJobConfig {
                 }
 
                 for (String token : tokens) {
-                    CouponUsageStatsFcmSendMessage couponUsageStatsFcmSendMessage = CouponUsageStatsFcmSendMessage.of(memberId, token, topDong, topHour, activeEventCount);
+                    String traceId = NotificationTraceIdGenerator.generate(item.aggregatedAt(), memberId, token, topDong, topHour);
+
+                    CouponUsageStatsFcmSendMessage couponUsageStatsFcmSendMessage = CouponUsageStatsFcmSendMessage.of(traceId, memberId, token, topDong, topHour, activeEventCount);
                     couponUsageStatsFcmSendPublisher.publish(couponUsageStatsFcmSendMessage);
                 }
             }
