@@ -2,6 +2,12 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.5.7'
     id 'io.spring.dependency-management' version '1.1.7'
+    id "org.sonarqube" version '7.0.1.6134'
+    id 'jacoco'
+}
+
+jacoco {
+    toolVersion = "0.8.14"
 }
 
 def loadGithubCredentials() {
@@ -28,6 +34,32 @@ def loadGithubCredentials() {
     return credentials
 }
 
+def jacocoExcludes = [
+        // --- Spring Boot/JPA 관련 ---
+        '**/configuration/**',
+        '**/config/**',
+        '**/dto/**',
+        '**/exception/**',
+        '**/error/**',
+        '**/filter/**',
+        '**/handler/**',
+        '**/security/**',
+        '**/util/**',
+
+        // --- QueryDSL 관련 ---
+        '**/Q*.class',
+
+        // --- 기타 생성 코드 ---
+        '**/*Application.class',
+        '**/Test*.class',
+
+        // --- Flyway 관련 ---
+        '**/db/migration/**',
+
+        // --- Swagger 관련 ---
+        '**/static/docs/**',
+]
+
 group = 'com.couponpop'
 version = '0.0.1-SNAPSHOT'
 description = 'Batch Service for CouponPop MSA'
@@ -51,8 +83,8 @@ repositories {
         url = uri("https://maven.pkg.github.com/CouponPop/couponpop-core-module")
         credentials {
             def githubCredentials = loadGithubCredentials()
-            username = githubCredentials.GITHUB_ACTOR ?: System.getenv("GITHUB_ACTOR") ?: "unknown"
-            password = githubCredentials.GITHUB_TOKEN ?: System.getenv("GITHUB_TOKEN") ?: "unknown"
+            username = System.getenv("GITHUB_ACTOR") ?: githubCredentials.GITHUB_ACTOR ?: "unknown"
+            password = System.getenv("GITHUB_TOKEN") ?: githubCredentials.GITHUB_TOKEN ?: "unknown"
         }
     }
 }
@@ -90,7 +122,7 @@ dependencies {
     implementation 'com.couponpop:couponpop-security:0.0.3-SNAPSHOT'
 
     // [CouponPop Core Module]
-    implementation 'com.couponpop:couponpop-core:0.0.13-SNAPSHOT'
+    implementation 'com.couponpop:couponpop-core:0.0.15-SNAPSHOT'
 
     // [OpenFeign]
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
@@ -111,4 +143,22 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true // SonarQube용
+        csv.required = false
+        html.required = true // 개발자 확인용
+        html.outputLocation = layout.buildDirectory.dir('reports/jacoco/test/html')
+    }
+    afterEvaluate {
+        classDirectories.setFrom(
+                files(classDirectories.files.collect {
+                    fileTree(dir: it, exclude: jacocoExcludes)
+                })
+        )
+    }
 }
