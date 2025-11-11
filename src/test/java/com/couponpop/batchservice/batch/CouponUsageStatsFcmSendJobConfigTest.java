@@ -21,6 +21,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.jdbc.Sql;
+import org.springframework.test.context.jdbc.SqlConfig;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.*;
@@ -43,10 +44,12 @@ import static org.mockito.Mockito.*;
                 "/sql/setup_before_coupon_usage_stats_fcm_send_job_test.sql",
                 "/sql/insert_dummy_before_coupon_usage_stats_fcm_send_job_test.sql"
         },
+        config = @SqlConfig(encoding = "UTF-8"),
         executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD
 )
 @Sql(
         scripts = "/sql/cleanup_after_coupon_usage_stats_fcm_send_job_test.sql",
+        config = @SqlConfig(encoding = "UTF-8"),
         executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD
 )
 class CouponUsageStatsFcmSendJobConfigTest {
