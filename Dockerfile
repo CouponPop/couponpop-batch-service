@@ -14,12 +14,17 @@ COPY gradlew .
 COPY gradle gradle
 COPY build.gradle settings.gradle ./
 
-# Gradle 캐시 미리 받아두기
-RUN chmod +x ./gradlew && ./gradlew dependencies --no-daemon || return 0
+# Gradle이 인증 정보를 읽을 수 있도록 secret을 마운트하고 환경 변수로 export 합니다.
+RUN --mount=type=secret,id=github_token \
+    export GITHUB_TOKEN=$(cat /run/secrets/github_token) && \
+    chmod +x ./gradlew && ./gradlew dependencies --no-daemon || return 0
 
 # 소스 복사 및 빌드
 COPY src src
-RUN ./gradlew clean bootJar --no-daemon
+# 빌드 시에도 동일하게 secret을 마운트합니다.
+RUN --mount=type=secret,id=github_token \
+    export GITHUB_TOKEN=$(cat /run/secrets/github_token) && \
+    ./gradlew clean bootJar --no-daemon
 
 
 # ---------- [2단계] Runtime Stage ----------
