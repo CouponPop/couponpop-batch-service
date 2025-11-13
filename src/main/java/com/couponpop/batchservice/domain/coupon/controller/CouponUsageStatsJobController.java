@@ -12,7 +12,6 @@ import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -30,7 +29,6 @@ public class CouponUsageStatsJobController {
     private final JobLauncher jobLauncher;
     private final JobRegistry jobRegistry;
 
-    @Secured("ROLE_ADMIN")
     @PostMapping("/v1/jobs/coupon-usage-stats")
     public ResponseEntity<String> launchCouponUsageStatsJob(
             @CurrentMember AuthMember authMember,
