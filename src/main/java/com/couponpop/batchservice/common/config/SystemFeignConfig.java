@@ -4,7 +4,6 @@ import com.couponpop.security.token.SystemTokenProvider;
 import feign.RequestInterceptor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 import static com.couponpop.security.constants.SecurityTemplates.BEARER_TOKEN_PREFIX;
 
@@ -13,7 +12,6 @@ import static com.couponpop.security.constants.SecurityTemplates.BEARER_TOKEN_PR
  * 모든 요청에 시스템 토큰을 Authorization 헤더에 추가합니다.
  */
 @Slf4j
-@Configuration
 public class SystemFeignConfig {
 
     /**
