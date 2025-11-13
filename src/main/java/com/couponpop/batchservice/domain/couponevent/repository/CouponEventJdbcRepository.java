@@ -20,7 +20,7 @@ public class CouponEventJdbcRepository {
         String sql = """
                 SELECT COUNT(ce.id)
                 FROM coupon_events ce
-                WHERE ce.store_id = :storeIds
+                WHERE ce.store_id in (:storeIds)
                    AND :now BETWEEN ce.event_start_at AND ce.event_end_at
                    AND total_count > issued_count
                 """;
