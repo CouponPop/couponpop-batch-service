@@ -1,0 +1,188 @@
+package com.couponpop.batchservice.batch;
+
+import com.couponpop.batchservice.common.client.StoreSystemFeignClient;
+import com.couponpop.batchservice.common.response.ApiResponse;
+import com.couponpop.couponpopcoremodule.dto.store.response.StoreRegionInfoResponse;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.batch.core.*;
+import org.springframework.batch.test.JobLauncherTestUtils;
+import org.springframework.batch.test.context.SpringBatchTest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.jdbc.Sql;
+import org.testcontainers.junit.jupiter.Testcontainers;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+@ActiveProfiles("test")
+@SpringBatchTest
+@SpringBootTest
+@Testcontainers
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@Sql(
+        scripts = {
+                "/sql/setup_before_coupon_usage_stats_job_test.sql",
+                "/sql/insert_dummy_before_coupon_usage_stats_job_test.sql"
+        },
+        executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD
+)
+@Sql(scripts = "/sql/cleanup_after_coupon_usage_stats_job_test.sql", executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+class CouponUsageStatsJobConfigTest {
+
+    @Autowired
+    private JobLauncherTestUtils jobLauncherTestUtils;
+
+    @Autowired
+    @Qualifier("couponUsageStatsJob")
+    private Job couponUsageStatsJob;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @MockitoBean
+    private StoreSystemFeignClient storeSystemFeignClient;
+
+    @BeforeEach
+    void setUp() {
+        jobLauncherTestUtils.setJob(couponUsageStatsJob);
+        mockStoreFeignClient();
+    }
+
+    @Test
+    @DisplayName("쿠폰 사용 기록을 집계하면 손님별 가장 많이 사용한 동과 시간대가 저장된다.")
+    void runCouponUsageStatsJob_success_recordsWithinRange() throws Exception {
+        // given
+        LocalDate runDateParam = LocalDate.of(2025, 10, 31);
+        JobParameters jobParameters = new JobParametersBuilder()
+                .addLocalDate("runDate", runDateParam) // 2025년 10월 데이터까지 집계
+                .toJobParameters();
+
+        // when
+        JobExecution jobExecution = jobLauncherTestUtils.launchJob(jobParameters);
+
+        // then
+        assertThat(jobExecution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+
+        List<CouponUsageStatsRow> statsRows = jdbcTemplate.query(
+                "SELECT member_id, top_dong, top_hour, aggregated_at FROM coupon_usage_stats ORDER BY member_id",
+                (rs, rowNum) -> new CouponUsageStatsRow(
+                        rs.getLong("member_id"),
+                        rs.getString("top_dong"),
+                        rs.getInt("top_hour"),
+                        rs.getDate("aggregated_at").toLocalDate()
+                )
+        );
+
+        assertThat(statsRows).hasSize(4);
+
+        /*
+         * 1번 손님
+         * - 동 카운트(요약): 상도동 2, 잠실동 2, 대치동 2, 서교동 2, 그 외 각 1
+         * - top_dong = "서교동" (동률 2이지만 가장 최근 `2025-10-26T11:00:00`로 타이브레이크)
+         * - top_hour = 11 (서교동 11시에 2건 -> 최다)
+         */
+        assertThat(statsRows)
+                .filteredOn(row -> row.memberId() == 1L)
+                .singleElement()
+                .satisfies(row -> {
+                    assertThat(row.topDong()).isEqualTo("서교동");
+                    assertThat(row.topHour()).isEqualTo(11);
+                    assertThat(row.aggregatedAt()).isEqualTo(runDateParam);
+                });
+
+        /*
+         * 2번 손님
+         * - 동 카운트(요약): 상도동 2(최신 10-25), 대치동 2(최신 10-20), 잠실동 2(최신 10-23), 흑석동 2(최신 10-18), 그 외 각 1
+         * - top_dong = "상도동" (동률 2 중 가장 최신 `2025-10-25T13:00:00`)
+         * - top_hour = "13" (상도동 13시 1건 vs 12시 1건 → 최신 max_used_at으로 13시 선택)
+         */
+        assertThat(statsRows)
+                .filteredOn(row -> row.memberId() == 2L)
+                .singleElement()
+                .satisfies(row -> {
+                    assertThat(row.topDong()).isEqualTo("상도동");
+                    assertThat(row.topHour()).isEqualTo(13);
+                    assertThat(row.aggregatedAt()).isEqualTo(runDateParam);
+                });
+
+        /*
+         * 3번 손님
+         * - 동 카운트(요약): 노량진동 19(전부 15:00), 상도동 1, 흑석동 1, 잠실동 1
+         * - top_dong = "노량진동" (압도적 다수)
+         * - top_hour = 15 (노량진동 전부 15시 사용)
+         */
+        assertThat(statsRows)
+                .filteredOn(row -> row.memberId() == 3L)
+                .singleElement()
+                .satisfies(row -> {
+                    assertThat(row.topDong()).isEqualTo("노량진동");
+                    assertThat(row.topHour()).isEqualTo(15);
+                    assertThat(row.aggregatedAt()).isEqualTo(runDateParam);
+                });
+
+        /*
+         * 4번 손님
+         * - 동 카운트(요약): 상도동 2(4개 중 2개는 20일 이전), 흑석동 1, 잠실동 1
+         * - 20일 내 쿠폰 총 사용량 5회 미만으로 집계 대상 아님
+         */
+        assertThat(statsRows)
+                .filteredOn(row -> row.memberId() == 4L)
+                .isEmpty();
+
+        /*
+         * 5번 손님
+         * - 동 카운트(요약): 상도동 1, 흑성동 1, 잠실동 3
+         * - top_dong = "잠실동"
+         * - top_hour = 13 (11시 vs 12시 vs 13시 각각 1건, 최신 max_used_at으로 13시 선택)
+         */
+        assertThat(statsRows)
+                .filteredOn(row -> row.memberId() == 5L)
+                .singleElement()
+                .satisfies(row -> {
+                    assertThat(row.topDong()).isEqualTo("잠실동");
+                    assertThat(row.topHour()).isEqualTo(13);
+                    assertThat(row.aggregatedAt()).isEqualTo(runDateParam);
+                });
+    }
+
+    private void mockStoreFeignClient() {
+        Map<Long, String> storeDongMap = Map.ofEntries(
+                Map.entry(1L, "상도동"),
+                Map.entry(2L, "흑석동"),
+                Map.entry(3L, "잠실동"),
+                Map.entry(4L, "대치동"),
+                Map.entry(5L, "역삼동"),
+                Map.entry(6L, "서교동"),
+                Map.entry(7L, "연남동"),
+                Map.entry(8L, "잠실동"),
+                Map.entry(9L, "노량진동")
+        );
+
+        List<StoreRegionInfoResponse> responses = storeDongMap.entrySet().stream()
+                .map(entry -> new StoreRegionInfoResponse(entry.getKey(), entry.getValue()))
+                .toList();
+
+        @SuppressWarnings("unchecked")
+        ApiResponse<List<StoreRegionInfoResponse>> apiResponse = mock(ApiResponse.class);
+        when(apiResponse.getData()).thenReturn(responses);
+        when(storeSystemFeignClient.fetchStoresRegionByIds(anyList())).thenReturn(apiResponse);
+    }
+
+    private record CouponUsageStatsRow(long memberId, String topDong, int topHour, LocalDate aggregatedAt) {
+    }
+
+}

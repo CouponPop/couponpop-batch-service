@@ -1,0 +1,45 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: batch-service
+
+  config:
+    import: optional:aws-parameterstore:/couponpop/prod/batch-service/
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        show_sql: false
+        highlight_sql: false
+
+logging:
+  level:
+    root: INFO
+    org.springframework: INFO
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
+
+client:
+  store-service:
+    name: store-service
+    url: http://store.couponpop.internal:8080
+  notification-service:
+    name: notification-service
+    url: http://notification.couponpop.internal:8080
+
+cloud:
+  aws:
+    region:
+      static: ap-northeast-2
+    stack:
+      auto: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus

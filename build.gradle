@@ -2,11 +2,67 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.5.7'
     id 'io.spring.dependency-management' version '1.1.7'
+    id "org.sonarqube" version '7.0.1.6134'
+    id 'jacoco'
 }
 
-group = 'com.sparta'
+jacoco {
+    toolVersion = "0.8.14"
+}
+
+def loadGithubCredentials() {
+    def credentials = [:]
+    def envFile = file('.env')
+    def foundKeys = 0
+
+    if (envFile.exists()) {
+        envFile.eachLine { line ->
+            if (foundKeys == 2) return // 두 키 다 찾으면 조기 종료
+            if (!line.startsWith('#') && line.contains('=')) {
+                def (key, value) = line.split('=', 2)*.trim()
+                if (key in ['GITHUB_ACTOR', 'GITHUB_TOKEN']) {
+                    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+                        value = value.substring(1, value.length() - 1)
+                    }
+                    credentials[key] = value
+                    foundKeys++ //
+                }
+            }
+        }
+    }
+
+    return credentials
+}
+
+def jacocoExcludes = [
+        // --- Spring Boot/JPA 관련 ---
+        '**/configuration/**',
+        '**/config/**',
+        '**/dto/**',
+        '**/exception/**',
+        '**/error/**',
+        '**/filter/**',
+        '**/handler/**',
+        '**/security/**',
+        '**/util/**',
+
+        // --- QueryDSL 관련 ---
+        '**/Q*.class',
+
+        // --- 기타 생성 코드 ---
+        '**/*Application.class',
+        '**/Test*.class',
+
+        // --- Flyway 관련 ---
+        '**/db/migration/**',
+
+        // --- Swagger 관련 ---
+        '**/static/docs/**',
+]
+
+group = 'com.couponpop'
 version = '0.0.1-SNAPSHOT'
-description = 'coupon-pop-batch'
+description = 'Batch Service for CouponPop MSA'
 
 java {
     toolchain {
@@ -22,21 +78,87 @@ configurations {
 
 repositories {
     mavenCentral()
+    maven {
+        url = uri("https://maven.pkg.github.com/CouponPop/couponpop-security-module")
+        url = uri("https://maven.pkg.github.com/CouponPop/couponpop-core-module")
+        credentials {
+            def githubCredentials = loadGithubCredentials()
+            username = System.getenv("GITHUB_ACTOR") ?: githubCredentials.GITHUB_ACTOR ?: "unknown"
+            password = System.getenv("GITHUB_TOKEN") ?: githubCredentials.GITHUB_TOKEN ?: "unknown"
+        }
+    }
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "io.awspring.cloud:spring-cloud-aws-dependencies:3.1.1"
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2025.0.0"
+    }
 }
 
 dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-batch'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
     implementation 'org.springframework.boot:spring-boot-starter-web'
-    compileOnly 'org.projectlombok:lombok'
+
+    // [DB]
     runtimeOnly 'com.mysql:mysql-connector-j'
+
+    // [Compile & Runtime & Test]
+    compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
+
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'org.springframework.batch:spring-batch-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.springframework.batch:spring-batch-test'
+
+    // [Testcontainers]
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:mysql'
+
+    // [CouponPop Security Module]
+    implementation 'com.couponpop:couponpop-security:0.0.3-SNAPSHOT'
+
+    // [CouponPop Core Module]
+    implementation 'com.couponpop:couponpop-core:0.0.15-SNAPSHOT'
+
+    // [OpenFeign]
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+
+    // [RabbitMQ]
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
+
+    // [Jackson]
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+
+    // [AWS]
+    implementation 'io.awspring.cloud:spring-cloud-aws-starter-parameter-store'
+
+    // [Micrometer Prometheus Registry]
+    implementation 'io.micrometer:micrometer-registry-prometheus'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true // SonarQube용
+        csv.required = false
+        html.required = true // 개발자 확인용
+        html.outputLocation = layout.buildDirectory.dir('reports/jacoco/test/html')
+    }
+    afterEvaluate {
+        classDirectories.setFrom(
+                files(classDirectories.files.collect {
+                    fileTree(dir: it, exclude: jacocoExcludes)
+                })
+        )
+    }
 }
