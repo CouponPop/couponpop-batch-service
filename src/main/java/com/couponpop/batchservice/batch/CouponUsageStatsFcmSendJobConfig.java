@@ -9,9 +9,11 @@ import com.couponpop.couponpopcoremodule.dto.coupon.event.model.CouponUsageStats
 import com.couponpop.couponpopcoremodule.dto.fcmtoken.response.FcmTokensResponse;
 import com.couponpop.couponpopcoremodule.dto.store.response.StoreIdsByDongResponse;
 import com.couponpop.couponpopcoremodule.utils.NotificationTraceIdGenerator;
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.SkipListener;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
@@ -23,6 +25,9 @@ import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuild
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.dao.DataAccessException;
+import org.springframework.retry.support.RetryTemplate;
+import org.springframework.retry.support.RetryTemplateBuilder;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
@@ -60,13 +65,37 @@ public class CouponUsageStatsFcmSendJobConfig {
     @Bean
     public Step couponUsageStatsFcmSendStep(
             JdbcCursorItemReader<CouponUsageStatsDto> couponUsageStatsFcmSendReader,
-            ItemWriter<CouponUsageStatsDto> couponUsageStatsFcmSendWriter
+            ItemWriter<CouponUsageStatsDto> couponUsageStatsFcmSendWriter,
+            SkipListener<CouponUsageStatsDto, CouponUsageStatsDto> couponUsageStatsFcmSendSkipListener
     ) {
         return new StepBuilder(COUPON_USAGE_STATS_FCM_SEND_STEP, jobRepository)
                 .<CouponUsageStatsDto, CouponUsageStatsDto>chunk(CHUNK_SIZE, txManager)
                 .reader(couponUsageStatsFcmSendReader)
                 .writer(couponUsageStatsFcmSendWriter)
+                .faultTolerant() // 외부 시스템 오류로 전체 Step 중단을 방지
+                .retryLimit(3) // 재시도 최대 횟수
+                .retry(FeignException.class) // 재시도 대상 예외
+                .retry(DataAccessException.class) // 재시도 대상 예외
+                .skipLimit(CHUNK_SIZE)// 최대 건너뛸 수 있는 항목 수
+                .skip(FeignException.class) // 건너뛸 수 있는 예외
+                .skip(DataAccessException.class) // 건너뛸 수 있는 예외
+                .listener(couponUsageStatsFcmSendSkipListener) // 스킵 리스너 등록
                 .build();
+    }
+
+    @Bean
+    public SkipListener<CouponUsageStatsDto, CouponUsageStatsDto> couponUsageStatsFcmSendSkipListener() {
+        return new SkipListener<>() {
+            @Override
+            public void onSkipInProcess(CouponUsageStatsDto item, Throwable t) {
+                log.warn("회원 {} 처리 중 예외 발생으로 건너뜀: {}", item.memberId(), t.getMessage());
+            }
+
+            @Override
+            public void onSkipInWrite(CouponUsageStatsDto item, Throwable t) {
+                log.warn("회원 {} 알림 발송 중 예외 발생으로 건너뜀: {}", item.memberId(), t.getMessage());
+            }
+        };
     }
 
     @Bean
@@ -132,6 +161,7 @@ public class CouponUsageStatsFcmSendJobConfig {
             StoreSystemFeignClient storeSystemFeignClient,
             CouponEventJdbcRepository couponEventJdbcRepository,
             CouponUsageStatsFcmSendPublisher couponUsageStatsFcmSendPublisher,
+            RetryTemplate couponUsageStatsRetryTemplate,
             @Value("#{jobParameters['runDate'] ?: null}") LocalDate runDateParam,
             @Value("#{jobParameters['targetHour'] ?: null}") Long targetHourParam
     ) {
@@ -148,7 +178,9 @@ public class CouponUsageStatsFcmSendJobConfig {
                     .toList();
 
             // 회원별 FCM 토큰 조회
-            List<FcmTokensResponse> fcmTokensResponses = notificationSystemFeignClient.fetchFcmTokensByMemberIds(memberIds).getData();
+            List<FcmTokensResponse> fcmTokensResponses = couponUsageStatsRetryTemplate.execute(
+                    context -> notificationSystemFeignClient.fetchFcmTokensByMemberIds(memberIds).getData()
+            );
 
             // memberId -> FCM Token List 매핑 생성
             Map<Long, List<String>> memberIdToTokensMap = fcmTokensResponses.stream()
@@ -162,7 +194,9 @@ public class CouponUsageStatsFcmSendJobConfig {
                     .map(CouponUsageStatsDto::topDong)
                     .distinct()
                     .toList();
-            List<StoreIdsByDongResponse> storeIdsByDongResponses = storeSystemFeignClient.fetchStoreIdsByDongs(topDongs).getData();
+            List<StoreIdsByDongResponse> storeIdsByDongResponses = couponUsageStatsRetryTemplate.execute(
+                    context -> storeSystemFeignClient.fetchStoreIdsByDongs(topDongs).getData()
+            );
 
             // dong -> Store ID List 매핑 생성
             Map<String, List<Long>> dongToStoreIdsMap = storeIdsByDongResponses.stream()
@@ -206,5 +240,14 @@ public class CouponUsageStatsFcmSendJobConfig {
                 }
             }
         };
+    }
+
+    @Bean
+    public RetryTemplate couponUsageStatsRetryTemplate() {
+        return new RetryTemplateBuilder()
+                .maxAttempts(3) // 최대 재시도 횟수
+                .exponentialBackoff(500, 2.0, 2000) // 지수 백오프 설정
+                .retryOn(FeignException.class) // 재시도 대상 예외
+                .build();
     }
 }
